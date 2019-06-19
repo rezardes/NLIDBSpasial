@@ -18,42 +18,106 @@ stemmer = factory.create_stemmer()
 # keuntungannya bermakna
 # nanti ada yang dikelompokkan
 # pengecualian bagian
+# kurang dari besar hmm
+
+# FIELDS RELATION VALUE FIELDS RELATION VALUE CONJ FIELDS RELATION VALUE SEPARATOR SPATIALOP RELATION VALUE RELATION VALUE OPERATOR NUMBER CONJ SPATIALOP RELATION VALUE RELATION VALUE OPERATOR NUMBER 
 
 grammar = CFG.fromstring("""
 S -> COMMAND QUERY
 COMMAND -> COMMAND1 | COMMAND2 | COMMAND3
 COMMAND1 -> 'tampil'
 COMMAND2 -> 'tunjuk' | 'lihat'
-COMMAND3 -> 'hitung' | 'kalkulasi'
-QUERY -> RELATION | CONDITION | CONDITION CONDITION | CONDITION CONJ CONDITION | CONDITION QUERY | CONDITION CONJ QUERY
+COMMAND3 -> 'hitung' | 'kalkulasi' | 'cari'
+QUERY -> RELATION | CONDITION | CONDITION CONDITION | CONDITION CONJ CONDITION | CONDITION QUERY | CONDITION CONJ QUERY | CONDITION SEPARATOR QUERY
 CONJ -> AND | OR
 AND -> 'dan' | 'serta'
 OR -> 'atau'
-CONDITION -> FIELDS OPERATOR NUMBER | FIELDS RELATION | FIELDS RELATION SPATIALOP RELCOND | FIELDS RELATION NOT SPATIALOP RELCOND | FIELDS RELCOND | PART RELATION SPATIALOP GEOCOND | RELCOND | RELATION SPATIALOP GEOCOND | RELATION NOT SPATIALOP GEOCOND | RELATION SPATIALOP RELCOND | RELATION NOT SPATIALOP RELCOND | SPATIALOP RELATION SPATIALOP RELCOND | SPATIALOP RELATION NOT SPATIALOP RELCOND | SPATIALOP RELCOND |  SPATIALOP RELCOND RELCOND | SPATIALOP OPERATOR NUMBER | VALUES
+SEPARATOR -> 'jika'
+CONDITION -> FIELDS OPERATOR NUMBER | FIELDS RELATION | FIELDS RELATION SPATIALOP RELCOND | FIELDS RELATION NOT SPATIALOP RELCOND | FIELDS RELCOND | PART RELATION SPATIALOP GEOCOND | RELCOND | RELATION SPATIALOP GEOCOND | RELATION NOT SPATIALOP GEOCOND | RELATION SPATIALOP RELCOND | RELATION NOT SPATIALOP RELCOND | SPATIALOP NUMBER | SPATIALOP OPERATOR NUMBER | SPATIALOP RELATION SPATIALOP RELCOND | SPATIALOP RELATION NOT SPATIALOP RELCOND | SPATIALOP RELCOND |  SPATIALOP RELCOND RELCOND | SPATIALOP RELCOND RELCOND OPERATOR NUMBER 
 PART -> 'daerah' | 'bagian' | 'potong'
-GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY COOR SIZE NUMBER
+GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER
 GEOMETRY -> SQUARE | RECTANGLE
 SQUARE -> 'persegi'
-RECTANGLE -> 'segiempat' | 'persegi' 'panjang'
-POINT -> LU | RU | LB | RB
+RECTANGLE -> 'segiempat' | 'persegi' 'panjang' | 'kotak'
+POINT -> LU | RU | LB | RB | PUSAT
+SIZE -> 'sisi' | 'panjang' | 'lebar'
 LU -> 'titik' 'kiri' 'atas'
 RB -> 'titik' 'kanan' 'bawah'
+PUSAT -> 'titik' 'pusat'
 RELCOND -> RELATION VALUES | RELATION FIELDS VALUE | RELATION FIELDS NUMBER | RELATION
-OPERATOR -> 'lebih' 'dari' | 'kurang' 'dari' | 'sama' 'dengan' | 'lebih' 'dari 'sama 'dengan' | 'kurang' 'dari' 'sama' 'dengan'
+OPERATOR -> MORE | LESS | EQUAL | MORE EQUAL | LESS EQUAL
+LESS -> 'kurang' 'dari'
+MORE -> 'lebih' 'dari'
+EQUAL -> 'sama' 'dengan' | 'besar'
 NOT -> 'tidak' | 'bukan'
-SPATIALOP -> PANJANG | LUAS | KELILING | INSIDE | OUTSIDE | JARAK
+SPATIALOP -> PANJANG | LUAS | KELILING | INSIDE | OUTSIDE | JARAK | OVERLAP
 JARAK -> 'jarak'
 INSIDE -> 'dalam' | 'pada'
 OUTSIDE -> 'luar'
 PANJANG -> 'panjang'
 LUAS -> 'luas'
 KELILING -> 'keliling'
+OVERLAP -> 'iris' | 'singgung'
 FIELDS -> FIELD FIELD | FIELD | FIELD FIELDS | FIELD CONJ FIELDS
 VALUES -> VALUE VALUE | VALUE | VALUE VALUES
 """)
 
 #'dari' | 'kurang' 'dari' | 'sama' 'dengan'
 # FIELDS -> FIELD FIELD | FIELD | FIELD FIELDS
+
+def findAmountCode(arr, code):
+
+    counter = 0
+
+    for elmt in arr:
+        if elmt.startswith(code):
+            counter = counter + 1
+
+    return counter
+
+def deleteMultipleRel(arr, index):
+
+    if (len(arr)!=index):
+
+        prev = ""
+        idx = -1
+        found = {}
+        phase = 1
+        for i in range(index, len(arr)):
+
+            if (prev.startswith('V:')):
+                phase = 2
+
+            if (phase==2):
+                if (not prev.startswith('V:') and (arr[i] in found)):
+                    idx = i
+                    #print(idx)
+                    break
+                else:
+                    found[arr[i]] = True
+            else:
+                if not (arr[i] in found):
+                    found[arr[i]] = True
+                elif ((arr[i] in found) and i+1!=len(arr)):
+                    idx = i
+                    #print(idx)
+                    break
+                    
+
+            prev = arr[i]
+
+        if (idx != -1):
+            del arr[idx]
+            #print(arr)
+            deleteMultipleRel(arr, idx)
+        elif (not prev.startswith('V:') and (arr[i] in found)):
+            arr.pop()
+    
+    return arr
+
+'''arr = ['titik', 'garis', 'titik', 'titik', 'V: A', 'garis', 'garis', 'V: A', 'titik', 'V: B', 'titik']
+print(arr)
+print(deleteMultipleRel(arr, 0))''' 
 
 def getAttrs():
 
@@ -165,7 +229,8 @@ def parse(text):
 
 hasil = None
 # menghilangkan 'di', 'yang', 'ada di', 'dengan'
-removeList = ['di', 'yang', 'ada', 'masing-masing', 'tiap', 'dengan', 'besar', 'hadap']
+# ada harus bener-bener kata; alternatif sementara: yang ada
+removeList = ['di', 'yang ada', 'yang', 'masing-masing', 'tiap', 'dengan', 'besar', 'hadap', 'milik']
 prefixList = ['ber-']
 stemList = ['beribukota', 'ibukota']
 
@@ -249,7 +314,35 @@ def takeElements(arr):
     
     return fieldlist
 
-def addOrdered(arrs, rel):
+'''def getIndices(arrs, code):
+    indices = [i for i, x in enumerate(arrs) if x == code]
+    return indices'''
+
+def getIndexTwoElmt(arrs, rel, code):
+
+    for i in range(0, len(arrs)-1):
+
+        if (arrs[i]==rel and arrs[i+1]==code):
+            return i
+    return -1
+
+#arrs = ['titik', 'A', 'titik', 'C', 'titik']
+#print(getIndexTwoElmt(arrs, 'titik', 'C'))
+
+
+def addUniqueCode(arrs, rel, code):
+
+    indices = getIndexTwoElmt(arrs, rel, code)
+    if (indices!=-1):
+        arrs.pop()
+    else:
+        arrs.append(code)
+
+    return arrs
+
+#print(addUniqueCode(arrs,'titik', 'D'))
+
+'''def addOrdered(arrs, rel):
 
     if (rel+'1' in arrs):
         for num in range(3, len(arrs)+2):
@@ -262,7 +355,7 @@ def addOrdered(arrs, rel):
     else:
         arrs.append(rel)
 
-    return arrs
+    return arrs'''
 
 '''def addCondition(conds, rel):
 
@@ -284,7 +377,21 @@ def delNum(text):
     text = re.sub(r"\d+", "", text)
     return text
 
-def collect(cond_node, result, counter, prev, prevVal):
+prevTwo = ""
+prevValTwo = ""
+prevNode = ""
+prevValNode = ""
+counter = 0
+isColumn = True
+
+def collect(cond_node, result):
+
+    global prevNode
+    global prevValNode
+    global prevTwo
+    global prevValTwo
+    global counter
+    global isColumn
 
     '''
     if (cond_node.label()=="CONJ"):
@@ -309,109 +416,173 @@ def collect(cond_node, result, counter, prev, prevVal):
     '''
 
     if (cond_node.label()=="RELATION"):
-        #if (cond_node.label() not in result["relation"]):
-            #print(cond_node[0])
-        #result["relation"].append(cond_node[0])
-        result["relation"] = addOrdered(result["relation"], cond_node[0])
-        result["cond"] = addOrdered(result["cond"], cond_node[0])
+
+        #print(cond_node)
+        #print("prev"+prevNode)
+        #print("prevVal"+prevValNode)
+        prevTwo = prevNode
+        prevValTwo = prevValNode
+        prevNode = cond_node.label()
+        prevValNode = cond_node[0]
+        print("tes!")
+
+        #result["relation"] = addOrdered(result["relation"], cond_node[0])
+        result["relation"].append(cond_node[0])
+        #result["cond"] = addOrdered(result["cond"], cond_node[0])
+        result["cond"].append(cond_node[0])
     elif (cond_node.label()=="CONDITION" or cond_node.label()=="RELCOND" or cond_node.label()=="GEOCOND"):
         isOperator = False
         for node in cond_node:
+
+            #print(node)
+            #print("prevNode"+prevNode)
+            #print("prevValNode"+prevValNode)
             '''print("counter: "+str(counter))
-            print("prev: "+prev)
+            print("prevNode: "+prevNode)
             print(node)'''
             if (node.label()=="GEOMETRY"):
-                prev = node[0].label()
-                prevVal = node[0].label()
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node[0].label()
+                prevValNode = node[0].label()
                 result["cond"].append(node[0].label())
             elif (node.label()=="POINT"):
-                prev = node[0].label()
-                prevVal = node[0].label()
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node[0].label()
+                prevValNode = node[0].label()
                 result["cond"].append(node[0].label())
             elif (node.label()=="COOR"):
-                prev = node.label()
-                prevVal = node[0]
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0]
                 result["cond"].append(node[0])
             elif (node.label()=="SPATIALOP" and counter==0):
-                prev = node.label()
-                prevVal = node[0].label()
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0].label()
                 result["colFunctions"] = node[0].label()
-            elif (node.label()=="SPATIALOP" and counter>0 and prev=="RELATION"):
+            elif (node.label()=="SPATIALOP" and counter>0): #and prevNode=="RELATION"):
                 # Apakah perlu append unik?
-                #result["cond"].append(prevVal) KARENA Tunjukkan daerah negara yang ada di dalam
-                prev = node.label()
-                prevVal = node[0].label()
+                #result["cond"].append(prevValNode) KARENA Tunjukkan daerah negara yang ada di dalam
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0].label()
                 result["cond"].append("O: "+node[0].label())
             elif (node.label()=="SPATIALOP" and counter>0):
-                prev = node.label()
-                prevVal = node[0].label()
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0].label()
                 result["cond"].append("O: "+node[0].label())
-            elif (node.label()=="NOT" and counter>0 and prev=="RELATION"):
+            elif (node.label()=="NOT" and counter>0 and prevNode=="RELATION"):
                 # Apakah perlu append unik?
-                result["cond"].append(prevVal)
-                prev = node.label()
-                prevVal = node.label()
+                result["cond"].append(prevValNode)
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node.label()
                 result["cond"].append("O: "+node.label())
-            elif ((prev=="VALUES" or prev=="NUMBER") and node.label()=="RELATION"):
-                prev = node.label()
-                prevVal = node[0]
-                #if (node[0] not in result["relation"]):
-                #    result["relation"].append(node[0])
-                result["cond"] = addOrdered(result["relation"], node[0])
-            elif (node.label()=="RELATION" and prev=="SPATIALOP"):
-                prev = node.label()
-                prevVal = node[0]
-                #if (node[0] not in result["relation"]):
-                #result["relation"].append(node[0])
-                result["relation"] = addOrdered(result["relation"], node[0])
-                result["cond"] = addOrdered(result["cond"], node[0])
-                result["cond"].append("AND")
-            elif (node.label()=="RELATION"):
-                prev = node.label()
-                prevVal = node[0]
-                #if (node[0] not in result["relation"]):
-                #result["relation"].append(node[0])
-                result["relation"] = addOrdered(result["relation"], node[0])
-                result["cond"] = addOrdered(result["cond"], node[0])
-                #result["cond"].append(node[0])
-            elif (node.label() == "FIELDS" and counter==0):
-                prev = node.label()
-                prevVal = ""
-                for elem in node:
-                    result["fields"].append(elem[0])
             elif (node.label() == "FIELDS"):
-                prev = node.label()
-                prevVal = node[0][0]
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0][0]
+                if (isColumn):
+                    result["fields"].append(node[0][0])
                 result["cond"].append(node[0][0])
-            elif (node.label() == "VALUES" and prev == "RELATION"):
-                prev = node.label()
-                prevVal = node[0][0]
+            # Tampilkan id titik A dan id titik B jika berjarak kurang dari 5!
+            elif (node.label() == "VALUES" and prevNode == "RELATION"):
+                #print("tes!")
+                #print(node[0][0])
+                #print("prev val2"+prevValTwo)
+                #print("prev2"+prevTwo)
+                addUniqueCode(result["relation"], prevValNode, "V: "+node[0][0])
+                if (prevTwo=="FIELDS"):
+                    #print("MASUK2!")
+                    if (len(result["cond"])-1)<0 or ((len(result["cond"])-3)>0 and result["cond"][len(result["cond"])-1]!=prevValTwo):
+                        #if ((len(result["cond"])-3)>0):
+                        #    print("elmt "+result["cond"][len(result["cond"])-3])
+                        #print("pvt "+prevValTwo)
+                        result["cond"].append(prevValTwo)
+                    result["fields"].append("V: "+prevValNode)
+                    result["fields"].append("V: "+node[0][0])
+                
+                result["cond"].append(prevValNode)
+                
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0][0]
+                
+                # Kenapa ada ini?
                 if (len(result["cond"])>0):
                     if (result["cond"][len(result["cond"])-1] == "AND"):
                         result["cond"].pop()
-                result["cond"].append(node[0][0])
+                
+                result["cond"].append("V: "+node[0][0])
                 result["cond"].append("AND")
+            elif (node.label() == "RELATION"):
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0]
+                result["relation"].append(node[0])
             elif (node.label() == "VALUES"):
-                prev = node.label()
-                prevVal = node[0][0]
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0][0]
                 result["cond"].append(node[0][0])
                 result["cond"].append("AND")
             elif (node.label() == "NUMBER"):
-                prev = node.label()
-                prevVal = node[0]
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0]
                 if (not isOperator):
                     result["cond"].append("O: =")
+                else:
+                    isOperator = True
                 result["cond"].append(node[0])
                 result["cond"].append("AND")
-            elif (node.label()=="CONJ" and prev!="COOR"):
-                prev = node.label()
-                prevVal = node[0]
+            elif (node.label() == "OPERATOR"):
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0]
+                isOperator = True
+                if (len(node)==2):
+                    if (node[0].label()=="LESS" and node[1].label()=="EQUAL"):
+                        result["cond"].append("O: <=")
+                    elif (node[0].label()=="MORE" and node[1].label()=="EQUAL"):
+                        result["cond"].append("O: >=")
+                else:
+                    if (node[0].label()=="LESS"):
+                        result["cond"].append("O: <")
+                    elif (node[0].label()=="MORE"):
+                        result["cond"].append("O: >")
+                    elif (node[0].label()=="EQUAL"):
+                        result["cond"].append("O: =")
+            elif (node.label()=="CONJ" and prevNode!="COOR"):
+                prevTwo = prevNode
+                prevValTwo = prevValNode
+                prevNode = node.label()
+                prevValNode = node[0]
                 result["cond"].append(node[0].label())
+            elif (node.label() == "SEPARATOR"):
+                isColumn = False
             elif (node.label() == "RELCOND" or node.label() == "GEOCOND"):
-                result = collect(node, result, counter, prev, prevVal)
+                result = collect(node, result)
             else:
-                result = collect(node, result, counter, prev, prevVal)
+                result = collect(node, result)
             counter = counter + 1
+            print("AKHIR")
+            print(prevNode)
+            print(prevTwo)
             
 
     '''
@@ -454,7 +625,7 @@ def recursiveWalk(cond_node, result):
         if (node.label()=="QUERY"):
             result = recursiveWalk(node, result)
         else:
-            result = collect(node, result, 0, "", "")
+            result = collect(node, result)
 
     if (len(result["cond"])>0):
         if (result["cond"][len(result["cond"])-1] == "AND"):
@@ -487,8 +658,13 @@ if (hasil[0][0].label()=="COMMAND1"):
         for rel in result["relation"]:
             temp.append("r"+indices[rel]+"."+geoms[delNum(rel)])
         query = query + declareFunctions(result["colFunctions"], temp) + "\n"
-    if ("fields" in result):
+    if (len(result["fields"])>0):
+        # Jangan lupa sinonimnya!
         for elem in result["fields"]:
+            if (not elem.startswith("V: ")):
+                query = query + "r1." + elem + ", "
+    else:
+        for elem in attrs[result["relation"][0]]:
             query = query + "r1." + elem + ", "
     query = query[:-2] + '\n'
     
