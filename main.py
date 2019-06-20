@@ -430,6 +430,19 @@ def collect(cond_node, result):
         result["relation"].append(cond_node[0])
         #result["cond"] = addOrdered(result["cond"], cond_node[0])
         result["cond"].append(cond_node[0])
+    elif (cond_node.label() == "FIELDS"):
+        prevTwo = prevNode
+        prevValTwo = prevValNode
+        #print("node")
+        #print(node)
+        if (isColumn):
+            for field in cond_node:
+                if (type(field[0])==type("tes")):
+                    result["fields"].append(field[0])
+                    prevNode = "FIELDS"
+                    prevValNode = field[0]
+                elif (field.label()!="CONJ"):
+                    result = collect(field, result)
     elif (cond_node.label()=="CONDITION" or cond_node.label()=="RELCOND" or cond_node.label()=="GEOCOND"):
         isOperator = False
         for node in cond_node:
@@ -489,11 +502,21 @@ def collect(cond_node, result):
             elif (node.label() == "FIELDS"):
                 prevTwo = prevNode
                 prevValTwo = prevValNode
-                prevNode = node.label()
-                prevValNode = node[0][0]
+                #print("node")
+                #print(node)
                 if (isColumn):
-                    result["fields"].append(node[0][0])
-                result["cond"].append(node[0][0])
+                    for field in node:
+                        print("field label")
+                        print(field.label())
+                        if (type(field[0])==type("tes")):
+                            result["fields"].append(field[0])
+                            prevNode = "FIELDS"
+                            prevValNode = field[0]
+                        elif (field.label()!="CONJ"):
+                            result = collect(field, result)
+                
+                    #result["fields"].append(node[0][0])
+                #result["cond"].append(node[0][0])
             # Tampilkan id titik A dan id titik B jika berjarak kurang dari 5!
             elif (node.label() == "VALUES" and prevNode == "RELATION"):
                 #print("tes!")
@@ -704,9 +727,10 @@ def makeRectangle(point1, point2, srid='2163'):
 
 def processCond(object1, operation, object2, query):
 
-    #print("processCond")
-    #print(object1)
-    #print(object2)
+    print("processCond")
+    print(object1)
+    print(operation)
+    print(object2)
 
     left = ""
     if (len(object1)>0):
@@ -723,8 +747,10 @@ def processCond(object1, operation, object2, query):
     if (len(operation)>1):
         if (operation[1]=="INSIDE"):
             op = "OUTSIDE"
-        else:
+        elif (operation[1]=="OUTSIDE"):
             op = "INSIDE"
+        elif (operation[0]=="LUAS" or operation[0]=="KELILING" or operation[0]=="PANJANG"):
+            op = operation[0]
 
     if (op=="INSIDE" or op=="OUTSIDE"):
         geom1 = ""
@@ -749,7 +775,12 @@ def processCond(object1, operation, object2, query):
             query = query + "AND "
             query = searchValQuery(query, right, object2[1])
     elif (op=="LUAS" or op=="KELILING" or op=="PANJANG"):
-        query = query + declareFunctions(op, ["r" + indices[right] + "." + geoms[delNum(right)]])
+        # result relation CHANGE!!!
+        if (not (right in result["relation"])):
+            # kasus 1 relasi doang
+            query = query + declareFunctions(op, ["r" + indices[result["relation"][0]] + "." + geoms[delNum(result["relation"][0])]]) + " " + operation[1] + " " + right
+        else:
+            query = query + declareFunctions(op, ["r" + indices[right] + "." + geoms[delNum(right)]])
     elif (op==""):
         if (left in result["relation"]):
             query = searchValQuery(query, left, object1[1]) + " "
