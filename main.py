@@ -21,6 +21,8 @@ stemmer = factory.create_stemmer()
 # kurang dari besar hmm
 
 # FIELDS RELATION VALUE FIELDS RELATION VALUE CONJ FIELDS RELATION VALUE SEPARATOR SPATIALOP RELATION VALUE RELATION VALUE OPERATOR NUMBER CONJ SPATIALOP RELATION VALUE RELATION VALUE OPERATOR NUMBER 
+# SPESIFIKASI GEOMETRI SEBAIKNYA DIBETULKAN
+# ingat remove "ada"
 
 grammar = CFG.fromstring("""
 S -> COMMAND QUERY
@@ -33,13 +35,13 @@ CONJ -> AND | OR
 AND -> 'dan' | 'serta'
 OR -> 'atau'
 SEPARATOR -> 'jika'
-CONDITION -> FIELDS OPERATOR NUMBER | FIELDS RELATION | FIELDS RELATION SPATIALOP RELCOND | FIELDS RELATION NOT SPATIALOP RELCOND | FIELDS RELCOND | PART RELATION SPATIALOP GEOCOND | RELCOND | RELATION SPATIALOP GEOCOND | RELATION NOT SPATIALOP GEOCOND | RELATION SPATIALOP RELCOND | RELATION NOT SPATIALOP RELCOND | SPATIALOP NUMBER | SPATIALOP OPERATOR NUMBER | SPATIALOP RELATION SPATIALOP RELCOND | SPATIALOP RELATION NOT SPATIALOP RELCOND | SPATIALOP RELCOND |  SPATIALOP RELCOND RELCOND | SPATIALOP RELCOND RELCOND OPERATOR NUMBER 
+CONDITION -> FIELDS OPERATOR NUMBER | FIELDS RELATION | FIELDS RELATION SPATIALOP RELCOND | FIELDS RELATION NOT SPATIALOP RELCOND | FIELDS RELCOND | FIELDS NUMBER | JARAK POINT COOR OPERATOR NUMBER | NOT SPATIALOP RELCOND | PART RELATION SPATIALOP GEOCOND | RELCOND | RELATION SPATIALOP GEOCOND | RELATION NOT SPATIALOP GEOCOND | RELATION SPATIALOP RELCOND | RELATION NOT SPATIALOP RELCOND | SPATIALOP NUMBER | SPATIALOP OPERATOR NUMBER | SPATIALOP RELATION SPATIALOP RELCOND | SPATIALOP RELATION NOT SPATIALOP RELCOND | SPATIALOP RELCOND |  SPATIALOP RELCOND RELCOND | SPATIALOP RELCOND RELCOND OPERATOR NUMBER 
 PART -> 'daerah' | 'bagian' | 'potong'
-GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER
+GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER | GEOMETRY SIZE NUMBER SIZE NUMBER CONJ POINT COOR | GEOMETRY SIZE NUMBER POINT COOR CONJ SIZE NUMBER | GEOMETRY POINT COOR SIZE NUMBER CONJ SIZE NUMBER
 GEOMETRY -> SQUARE | RECTANGLE
 SQUARE -> 'persegi'
 RECTANGLE -> 'segiempat' | 'persegi' 'panjang' | 'kotak'
-POINT -> LU | RU | LB | RB | PUSAT
+POINT -> LU | RU | LB | RB | PUSAT | 'titik'
 SIZE -> 'sisi' | 'panjang' | 'lebar'
 LU -> 'titik' 'kiri' 'atas'
 RB -> 'titik' 'kanan' 'bawah'
@@ -50,7 +52,7 @@ LESS -> 'kurang' 'dari'
 MORE -> 'lebih' 'dari'
 EQUAL -> 'sama' 'dengan' | 'besar'
 NOT -> 'tidak' | 'bukan'
-SPATIALOP -> PANJANG | LUAS | KELILING | INSIDE | OUTSIDE | JARAK | OVERLAP
+SPATIALOP -> PANJANG | LUAS | KELILING | INSIDE | OUTSIDE | JARAK | OVERLAP | MEETS
 JARAK -> 'jarak'
 INSIDE -> 'dalam' | 'pada'
 OUTSIDE -> 'luar'
@@ -58,6 +60,7 @@ PANJANG -> 'panjang'
 LUAS -> 'luas'
 KELILING -> 'keliling'
 OVERLAP -> 'iris' | 'singgung'
+MEETS -> 'sebelah' | 'belah'
 FIELDS -> FIELD FIELD | FIELD | FIELD FIELDS | FIELD CONJ FIELDS
 VALUES -> VALUE VALUE | VALUE | VALUE VALUES
 """)
@@ -155,7 +158,7 @@ def getGeom():
 
 def getValues():
 
-    values = ["jakarta", "indonesia", "a", "b", "c"]
+    values = ["jakarta", "indonesia", "a", "b", "c", "india"]
     return values
 
 attrs = getAttrs()
@@ -230,7 +233,7 @@ def parse(text):
 hasil = None
 # menghilangkan 'di', 'yang', 'ada di', 'dengan'
 # ada harus bener-bener kata; alternatif sementara: yang ada
-removeList = ['di', 'yang ada', 'yang', 'masing-masing', 'tiap', 'dengan', 'besar', 'hadap', 'milik']
+removeList = ['di', 'yang ada', 'yang', 'masing-masing', 'tiap', 'dengan', 'besar', 'hadap', 'milik', 'antara']
 prefixList = ['ber-']
 stemList = ['beribukota', 'ibukota']
 
@@ -238,10 +241,11 @@ stemList = ['beribukota', 'ibukota']
 # stemming process
 sentence = input()
 sentence = sentence.lower()
+sentence = sentence.replace('bersebelahan', 'belah')
 
 extractor = re.compile(r'\(\s*\d+\s*,\s*\d+\s*\)')
 keepList = extractor.findall(sentence)
-print(keepList)
+#print(keepList)
 output = stemmer.stem(sentence)
 for keep in keepList:
     spaces = re.compile(r'\s+')
@@ -272,6 +276,7 @@ def mapToFunctions(keyword):
         "INSIDE": 'ST_Within',
         "OUTSIDE": 'NOT ST_Within',
         "JARAK": 'ST_Distance',
+        "OVERLAP": 'ST_Intersection',
     }
 
     if keyword in functions:
@@ -288,6 +293,7 @@ def declareFunctions(keyword, params):
         "INSIDE": 2,
         "OUTSIDE": 2,
         "JARAK": 2,
+        "OVERLAP": 2,
     }
 
     function = mapToFunctions(keyword)
@@ -424,7 +430,7 @@ def collect(cond_node, result):
         prevValTwo = prevValNode
         prevNode = cond_node.label()
         prevValNode = cond_node[0]
-        print("tes!")
+        #print("tes!")
 
         #result["relation"] = addOrdered(result["relation"], cond_node[0])
         result["relation"].append(cond_node[0])
@@ -506,8 +512,8 @@ def collect(cond_node, result):
                 #print(node)
                 if (isColumn):
                     for field in node:
-                        print("field label")
-                        print(field.label())
+                        #print("field label")
+                        #print(field.label())
                         if (type(field[0])==type("tes")):
                             result["fields"].append(field[0])
                             prevNode = "FIELDS"
@@ -531,7 +537,7 @@ def collect(cond_node, result):
                         #    print("elmt "+result["cond"][len(result["cond"])-3])
                         #print("pvt "+prevValTwo)
                         result["cond"].append(prevValTwo)
-                    result["fields"].append("V: "+prevValNode)
+                    result["fields"].append("R: "+prevValNode)
                     result["fields"].append("V: "+node[0][0])
                 
                 result["cond"].append(prevValNode)
@@ -603,42 +609,9 @@ def collect(cond_node, result):
             else:
                 result = collect(node, result)
             counter = counter + 1
-            print("AKHIR")
-            print(prevNode)
-            print(prevTwo)
-            
-
-    '''
-    elif (cond_node[0].label()=="FIELDS" and cond_node[1].label()=="RELATION"):
-        for j in range(0, len(cond_node)):
-            if (cond_node[j].label()=="FIELDS"):
-                fields = cond_node[j]
-                result["fields"] = takeElements(fields) #
-            elif(cond_node[j].label()=="RELATION"):
-                result["relation"] = cond_node[j,0]
-    elif (cond_node[0].label()=="FIELD" and cond_node[1].label()=="OPERATOR"):
-        temp = []
-        for j in range(0, len(cond_node)):
-            # kalau fields
-            if (cond_node[j].label()=="FIELD"):
-                extract = cond_node[j,0]
-                temp.append(extract)
-            elif(cond_node[j].label()=="OPERATOR"):
-                if (cond_node[j,0]=="lebih" and cond_node[j,1]=="dari"):
-                    temp.append(">")
-                elif (cond_node[j,0]=="kurang" and cond_node[j,1]=="dari"):
-                    temp.append("<")
-                elif (cond_node[j,0]=="sama" and cond_node[j,1]=="dengan"):
-                    temp.append("=")
-            elif(cond_node[j].label()=="NUMBER"):
-                extract = cond_node[j,0]
-                temp.append(extract)
-        if "cond" in result:
-            result["cond"] = result["cond"] + temp
-        else:
-            result["cond"] = temp
-    '''
-    #elif (cond_node[0].label()=="RELATION" and cond_node[0].label()=="FIELD" and cond_node[0].label()=="VALUE"):
+            #print("AKHIR")
+            #print(prevNode)
+            #print(prevTwo)
     
     return result
 
@@ -666,13 +639,17 @@ result = {"cond": [], "relation": [], "fields": []}
 result = recursiveWalk(hasil[1], result)
 
 counter = 1
-for relation in result["relation"]:
+'''for relation in result["relation"]:
     indices[relation] = str(counter)
-    counter = counter + 1
-#print("indices")
-#print(indices)
+    counter = counter + 1'''
+for i in range(0, len(result["relation"])):
+    if (not result["relation"][i].startswith('V:')):
+        if (i+1!=len(result["relation"]) and result["relation"][i+1].startswith('V:')):
+            temp = result["relation"][i+1].replace('V: ', '')
+            indices[result["relation"][i]+temp] = str(counter)
+        counter = counter + 1
 
-print(result)
+#print(result)
 query = "SELECT "
 if (hasil[0][0].label()=="COMMAND1"):
 
@@ -684,8 +661,12 @@ if (hasil[0][0].label()=="COMMAND1"):
     if (len(result["fields"])>0):
         # Jangan lupa sinonimnya!
         for elem in result["fields"]:
-            if (not elem.startswith("V: ")):
+            if (not elem.startswith("V:") and not elem.startswith("R:")):
                 query = query + "r1." + elem + ", "
+            elif (elem.startswith("R:")):
+                rel = ""
+                query = query + "r" + indices[rel] + "." + elem + ", "
+
     else:
         for elem in attrs[result["relation"][0]]:
             query = query + "r1." + elem + ", "
@@ -696,18 +677,27 @@ elif (hasil[0][0].label()=="COMMAND2" or hasil[0][0].label()=="COMMAND3"):
     #print(result)
     query = "SELECT "
     if ("colFunctions" in result):
-        temp = []
-        for rel in result["relation"]:
-            temp.append("r"+indices[rel]+"."+geoms[delNum(rel)])
+        temp = [] #rel in result["relation"]:
+        for i in range(0, len(result["relation"])):
+            if (not result["relation"][i].startswith('V:')):
+                if (result["relation"][i+1].startswith('V:')):
+                    temp2 = result["relation"][i+1].replace('V: ','')
+                    temp.append("r"+indices[result["relation"][i]+temp2]+"."+geoms[delNum(result["relation"][i])])
+                else:
+                    temp.append("r"+indices[result["relation"][i]]+"."+geoms[delNum(result["relation"][i])])
         query = query + declareFunctions(result["colFunctions"], temp) + "\n"
     else:
         query = query + "r1." + geoms[delNum(result["relation"][0])] + "\n"
 
 query = query + "FROM "
-for relation in result["relation"]:
-    query = query + delNum(relation) + " r" + indices[relation] + ", "
-#print("indicess")
-#print(indices)
+for i in range(0, len(result["relation"])): #relation in result["relation"]:
+    if (not result["relation"][i].startswith('V:')):
+        if (result["relation"][i+1].startswith('V:')):
+            temp = result["relation"][i+1].replace('V: ','')
+            query = query + result["relation"][i] + " r" + indices[result["relation"][i]+temp] + ", "
+        else:
+            query = query + result["relation"][i] + " r" + indices[result["relation"][i]] + ", "
+
 query = query[:-2] + '\n'
 
 # Masih berupa field value sama relation value untuk opspasial doang
@@ -716,10 +706,22 @@ def searchValQuery(query, relation, value):
 
     query = query + "("
     for attr in attrs[delNum(relation)]:
-        query = query + "r" + indices[relation] + "." + attr + " = '" + value + "' OR "
+        if ((relation+value) in indices):
+            query = query + "r" + indices[relation+value] + "." + attr + " = '" + value + "' OR "
+        else:
+            query = query + "r" + indices[relation] + "." + attr + " = '" + value + "' OR "
     query = query[:-4] + ")"
 
     return query
+
+def isCodeInList(arrs, code):
+
+    found = False
+    for elmt in arrs:
+        if elmt.startswith(code):
+            found = True
+            break
+    return found
 
 def makeRectangle(point1, point2, srid='2163'):
 
@@ -727,10 +729,10 @@ def makeRectangle(point1, point2, srid='2163'):
 
 def processCond(object1, operation, object2, query):
 
-    print("processCond")
+    '''print("processCond")
     print(object1)
     print(operation)
-    print(object2)
+    print(object2)'''
 
     left = ""
     if (len(object1)>0):
@@ -783,9 +785,9 @@ def processCond(object1, operation, object2, query):
             query = query + declareFunctions(op, ["r" + indices[right] + "." + geoms[delNum(right)]])
     elif (op==""):
         if (left in result["relation"]):
-            query = searchValQuery(query, left, object1[1]) + " "
-            #print("hasil query")
-            #print(query)
+            if (isCodeInList(object1, 'V:')):
+                temp = object1[len(object1)-1].replace('V: ', '')
+                query = searchValQuery(query, left, temp) + " "
         if (right in result["relation"]):
             query = query + "AND ("
             query = searchValQuery(query, right, object2[1]) + " "
