@@ -23,29 +23,35 @@ stemmer = factory.create_stemmer()
 # FIELDS RELATION VALUE FIELDS RELATION VALUE CONJ FIELDS RELATION VALUE SEPARATOR SPATIALOP RELATION VALUE RELATION VALUE OPERATOR NUMBER CONJ SPATIALOP RELATION VALUE RELATION VALUE OPERATOR NUMBER 
 
 grammar = CFG.fromstring("""
-S -> COMMAND QUERY
+S -> QUERIES
+QUERIES -> QUERY COMMA QUERY | QUERY CONJ QUERY | QUERY
+QUERY -> COMMAND CONDITION
 COMMAND -> COMMAND1 | COMMAND2 | COMMAND3
 COMMAND1 -> 'tampil'
 COMMAND2 -> 'tunjuk' | 'lihat'
 COMMAND3 -> 'hitung' | 'kalkulasi' | 'cari'
 QUERY -> RELATION | CONDITION | CONDITION CONDITION | CONDITION CONJ CONDITION | CONDITION QUERY | CONDITION CONJ QUERY | CONDITION SEPARATOR QUERY
-CONJ -> AND | OR
-AND -> 'dan' | 'serta'
-OR -> 'atau'
-SEPARATOR -> 'jika'
-CONDITION -> FIELDS OPERATOR NUMBER | FIELDS RELATION | FIELDS RELATION SPATIALOP RELCOND | FIELDS RELATION NOT SPATIALOP RELCOND | FIELDS RELCOND | PART RELATION SPATIALOP GEOCOND | RELCOND | RELATION SPATIALOP GEOCOND | RELATION NOT SPATIALOP GEOCOND | RELATION SPATIALOP RELCOND | RELATION NOT SPATIALOP RELCOND | SPATIALOP NUMBER | SPATIALOP OPERATOR NUMBER | SPATIALOP RELATION SPATIALOP RELCOND | SPATIALOP RELATION NOT SPATIALOP RELCOND | SPATIALOP RELCOND |  SPATIALOP RELCOND RELCOND | SPATIALOP RELCOND RELCOND OPERATOR NUMBER 
-PART -> 'daerah' | 'bagian' | 'potong'
+FIELDS -> SPATIALOP FIELDS | FIELD FIELDS | FIELDS CONJ FIELDS | FIELDS COMMA FIELDS | FIELD
+VALUES -> VALUE VALUE | VALUE | VALUE VALUES
+CONDITION -> COND CONJ COND | COND COMMA COND | SPATIALOP COND OPERATOR | COND SPATIALOP OPERATOR | SPATIALOP GEOCONDS | COND
+GEOCONDS -> GEOCONDS COMMA GEOCONDS | GEOCONDS CONJ COMMA GEOCONDS | GEOCOND
 GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER
+COND -> FIELDS RELATION | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | RELATION FIELDS VALUE | RELATION FIELDS NOT VALUE | FIELDS VALUE | FIELDS NOT VALUE | RELATION FIELDS
+OPERATOR -> OP NUMBER UNIT | NUMBER | NUMBER UNIT
 GEOMETRY -> SQUARE | RECTANGLE
 SQUARE -> 'persegi'
 RECTANGLE -> 'segiempat' | 'persegi' 'panjang' | 'kotak'
 POINT -> LU | RU | LB | RB | PUSAT
-SIZE -> 'sisi' | 'panjang' | 'lebar'
 LU -> 'titik' 'kiri' 'atas'
 RB -> 'titik' 'kanan' 'bawah'
 PUSAT -> 'titik' 'pusat'
-RELCOND -> RELATION VALUES | RELATION FIELDS VALUE | RELATION FIELDS NUMBER | RELATION
-OPERATOR -> MORE | LESS | EQUAL | MORE EQUAL | LESS EQUAL
+SIZE -> 'sisi' | 'panjang' | 'lebar'
+CONJ -> AND | OR
+AND -> 'dan' | 'serta'
+OR -> 'atau'
+SEPARATOR -> 'jika' | 'yang'
+PART -> 'daerah' | 'bagian' | 'potong'
+OP -> MORE | LESS | EQUAL | MORE EQUAL | LESS EQUAL
 LESS -> 'kurang' 'dari'
 MORE -> 'lebih' 'dari'
 EQUAL -> 'sama' 'dengan' | 'besar'
@@ -58,8 +64,6 @@ PANJANG -> 'panjang'
 LUAS -> 'luas'
 KELILING -> 'keliling'
 OVERLAP -> 'iris' | 'singgung'
-FIELDS -> FIELD FIELD | FIELD | FIELD FIELDS | FIELD CONJ FIELDS
-VALUES -> VALUE VALUE | VALUE | VALUE VALUES
 """)
 
 #'dari' | 'kurang' 'dari' | 'sama' 'dengan'
@@ -230,7 +234,8 @@ def parse(text):
 hasil = None
 # menghilangkan 'di', 'yang', 'ada di', 'dengan'
 # ada harus bener-bener kata; alternatif sementara: yang ada
-removeList = ['di', 'yang ada', 'yang', 'masing-masing', 'tiap', 'dengan', 'besar', 'hadap', 'milik']
+# jangan ada kata ada dulu
+removeList = ['di', 'masing', 'tiap', 'dengan', 'besar', 'hadap', 'milik']
 prefixList = ['ber-']
 stemList = ['beribukota', 'ibukota']
 
@@ -239,9 +244,14 @@ stemList = ['beribukota', 'ibukota']
 sentence = input()
 sentence = sentence.lower()
 
+# sementara pake :
+
 extractor = re.compile(r'\(\s*\d+\s*,\s*\d+\s*\)')
 keepList = extractor.findall(sentence)
-print(keepList)
+for keep in keepList:
+    temp = keep.replace(',', ':')
+    sentence = sentence.replace(keep, temp)
+
 output = stemmer.stem(sentence)
 for keep in keepList:
     spaces = re.compile(r'\s+')
@@ -424,7 +434,9 @@ def collect(cond_node, result):
         prevValTwo = prevValNode
         prevNode = cond_node.label()
         prevValNode = cond_node[0]
-        print("tes!")
+
+        #if (prev=="FIELDS"):
+
 
         #result["relation"] = addOrdered(result["relation"], cond_node[0])
         result["relation"].append(cond_node[0])
