@@ -425,6 +425,9 @@ def isThereNonCode(arrs, *codes):
 
 def isCode(elmt):
     
+    idx = re.search("[A-Z]:", elmt)
+
+    return idx==None
 
 def extractFirstRelation(arrs):
 
@@ -525,104 +528,6 @@ def recursiveWalk(cond_node, result):
 
     return result
 
-print(hasil)
-
-fieldlist = []
-wherecond = []
-indices = {}
-result = {"cond": [], "relation": [], "fields": []}
-
-result = recursiveWalk(hasil[0], result)
-
-counter = 1
-for i in range(0, len(result["relation"])):
-    if (not result["relation"][i].startswith('V:')):
-        if (i+1!=len(result["relation"]) and result["relation"][i+1].startswith('V:')):
-            temp = result["relation"][i+1].replace('V: ', '')
-            indices[result["relation"][i]+temp] = str(counter)
-        counter = counter + 1
-#print("indices")
-#print(indices)
-
-tes = ['1', '2', '3']
-print(tes[1:])
-
-print(result)
-query = "SELECT "
-index = 1
-for elem in result["fields"]:
-    if (not elem.startswith("V: ") and not elem.startswith("R: ")):
-        query = query + "r" + indices[extractFirstRelation(result["fields"][index:])] + "." + elem + ", "
-    index = index + 1
-query = query[:-2] + '\n'
-
-query = query + "FROM "
-for i in range(0, len(result["relation"])): #relation in result["relation"]:
-    if (not result["relation"][i].startswith('V:')):
-        if (result["relation"][i+1].startswith('V:')):
-            temp = result["relation"][i+1].replace('V: ','')
-            query = query + result["relation"][i] + " r" + indices[result["relation"][i]+temp] + ", "
-        else:
-            query = query + result["relation"][i] + " r" + indices[result["relation"][i]] + ", "
-
-query = query[:-2] + '\n'
-if (len(result["cond"])>0):
-    query = query + "WHERE "
-    object1 = []
-    op = []
-    # op dibuat list
-    object2 = []
-    isLeft = True
-    for elem in result["cond"]: #range(0, len(result["cond"])):
-
-        #print("elem")
-        #print(elem)
-
-        if (elem == "AND" or elem == "OR"):
-            isLeft = True
-            '''print(print("object1")
-            print(object1)
-            print("object2")
-            print(object2)'''
-            query = processCond(object1, op, object2, query)
-            query = query + elem + " "
-            #print("query")
-            #print(query)
-            object1 = []
-        elif (elem.startswith("O: ")):
-            op.append(elem.replace('O: ', ''))
-            isLeft = False
-        elif (isLeft):
-            object1.append(elem)
-        else:
-            object2.append(elem)
-
-    query = processCond(object1, op, object2, query)
-
-    '''
-    for elem in result["cond"]:
-        query = query + elem + " "
-    '''
-    print(query)
-else:
-    print(query)
-
-
-# Masih berupa field value sama relation value untuk opspasial doang
-
-def searchValQuery(query, relation, value):
-
-    query = query + "("
-    for attr in attrs[delNum(relation)]:
-        query = query + "r" + indices[relation] + "." + attr + " = '" + value + "' OR "
-    query = query[:-4] + ")"
-
-    return query
-
-def makeRectangle(point1, point2, srid='2163'):
-
-    return 'ST_MakeEnvelope(' + point1[0] + ',' + point1[1] + ',' + point2[0] + ',' + point2[1] + ',' + srid + ')'
-
 def processCond(object1, operation, object2, query):
 
     print("processCond")
@@ -692,3 +597,107 @@ def processCond(object1, operation, object2, query):
         query = query + "r" + indices[result["relation"][0]] + "." + left + " " + op + " " + right + " "
 
     return query
+
+print(hasil)
+
+fieldlist = []
+wherecond = []
+indices = {}
+result = {"cond": [], "relation": [], "fields": []}
+
+result = recursiveWalk(hasil[0], result)
+
+counter = 1
+for i in range(0, len(result["relation"])):
+    if (not result["relation"][i].startswith('V:')):
+        if (i+1!=len(result["relation"]) and result["relation"][i+1].startswith('V:')):
+            temp = result["relation"][i+1].replace('V: ', '')
+            indices[result["relation"][i]+temp] = str(counter)
+        counter = counter + 1
+#print("indices")
+#print(indices)
+
+tes = ['1', '2', '3']
+#print(tes[1:])
+
+print(result)
+query = "SELECT "
+index = 1
+if (len(result["fields"])>0):
+    for elem in result["fields"]:
+        if (not elem.startswith("V: ") and not elem.startswith("R: ")):
+            query = query + "r" + indices[extractFirstRelation(result["fields"][index:])] + "." + elem + ", "
+        index = index + 1
+    query = query[:-2] + '\n'
+else:
+    # sementara seperti ini dulu
+    # ada kasus tunjukkan titik A dan titik B jika kedua titik bersinggungan!
+    print("relation")
+    print(result["relation"][1])
+    query = query + "r" + indices[result["relation"][0]+result["relation"][1].replace('V: ', '')] + "." + geoms[result["relation"][0]]
+    query = query + '\n'
+
+
+
+query = query + "FROM "
+for i in range(0, len(result["relation"])): #relation in result["relation"]:
+    if (not result["relation"][i].startswith('V:')):
+        if (result["relation"][i+1].startswith('V:')):
+            temp = result["relation"][i+1].replace('V: ','')
+            query = query + result["relation"][i] + " r" + indices[result["relation"][i]+temp] + ", "
+        else:
+            query = query + result["relation"][i] + " r" + indices[result["relation"][i]] + ", "
+
+query = query[:-2] + '\n'
+if (len(result["cond"])>0):
+    query = query + "WHERE "
+    object1 = []
+    op = []
+    # op dibuat list
+    object2 = []
+    isLeft = True
+    for elem in result["cond"]: #range(0, len(result["cond"])):
+
+        #print("elem")
+        #print(elem)
+
+        if (elem == "AND" or elem == "OR"):
+            isLeft = True
+            '''print(print("object1")
+            print(object1)
+            print("object2")
+            print(object2)'''
+            query = processCond(object1, op, object2, query)
+            query = query + elem + " "
+            #print("query")
+            #print(query)
+            object1 = []
+        elif (elem.startswith("O: ")):
+            op.append(elem.replace('O: ', ''))
+            isLeft = False
+        elif (isLeft):
+            object1.append(elem)
+        else:
+            object2.append(elem)
+
+    query = processCond(object1, op, object2, query)
+
+    print(query)
+else:
+    print(query)
+
+
+# Masih berupa field value sama relation value untuk opspasial doang
+
+def searchValQuery(query, relation, value):
+
+    query = query + "("
+    for attr in attrs[delNum(relation)]:
+        query = query + "r" + indices[relation] + "." + attr + " = '" + value + "' OR "
+    query = query[:-4] + ")"
+
+    return query
+
+def makeRectangle(point1, point2, srid='2163'):
+
+    return 'ST_MakeEnvelope(' + point1[0] + ',' + point1[1] + ',' + point2[0] + ',' + point2[1] + ',' + srid + ')'
