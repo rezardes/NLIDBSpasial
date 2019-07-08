@@ -15,6 +15,32 @@ def checkNode(node, *symbols):
                 break
     return result
 
+def addSuffixGrammar(grammar):
+
+    productions = grammar.productions()
+    lproductions = list(productions)
+
+    key = "VALUE"
+    lhs = Nonterminal(key)
+    lproductions.extend([Production(lhs, ["bengawan","solo"])])
+    lproductions.extend([Production(lhs, ["us","route","1"])])
+    lproductions.extend([Production(lhs, ["us","route","2"])])
+    lproductions.extend([Production(lhs, ["state","route","2"])])
+    lproductions.extend([Production(lhs, ["state","route","3"])])
+
+    # Add a production for every words and number
+    lproductions.extend([literal_production("NUMBER", number) for number in numbers])
+    lproductions.extend([literal_production("RELATION", relation) for relation in relations])
+    lproductions.extend([literal_production("VALUE", value) for value in values])
+    lproductions.extend([literal_production("FIELD", field) for field in fields])
+    lproductions.extend([literal_production("COOR", coor) for coor in coordinates])
+
+    # Make a local copy of the grammar with extra productions
+    lgrammar = CFG(grammar.start(), lproductions)
+
+    return lgrammar, lproductions
+    
+
 def literal_production(key, rhs):
     """ Return a production <key> -> n 
 
@@ -162,36 +188,13 @@ fields = ["nama", "ibukota", "geom", "id", "id_ibukota", "alamat"]
 values = ["jakarta", "indonesia", "india", "a", "b", "c", "Mexfield", "Exford"]
 
 grammar = CFG.fromstring(temp+nodes)
-productions = grammar.productions()
-
-# Make a local copy of productions
-lproductions = list(productions)
-
-key = "VALUE"
-lhs = Nonterminal(key)
-lproductions.extend([Production(lhs, ["bengawan","solo"])])
-lproductions.extend([Production(lhs, ["us","route","1"])])
-lproductions.extend([Production(lhs, ["us","route","2"])])
-lproductions.extend([Production(lhs, ["state","route","2"])])
-lproductions.extend([Production(lhs, ["state","route","3"])])
-
-# Add a production for every words and number
-lproductions.extend([literal_production("NUMBER", number) for number in numbers])
-lproductions.extend([literal_production("RELATION", relation) for relation in relations])
-lproductions.extend([literal_production("VALUE", value) for value in values])
-lproductions.extend([literal_production("FIELD", field) for field in fields])
-lproductions.extend([literal_production("COOR", coor) for coor in coordinates])
-#lproductions.extend([literal_production("REMOVES", remove) for remove in removes])
-
-# Make a local copy of the grammar with extra productions
-lgrammar = CFG(grammar.start(), lproductions)
 
 # Load grammar into a parser
+lgrammar, lproductions = addSuffixGrammar(grammar)
 parser = nltk.RecursiveDescentParser(lgrammar)
 
 tokens = sentence.split()
-
-print(lgrammar)
+#print(lgrammar)
 parse_tree = None
 try:
     for t in parser.parse(tokens):
@@ -228,3 +231,9 @@ POINT -> LU | RU | LB | RB | PUSAT | 'titik'
 SIZE -> SIDE | LENGTH | WIDTH
 CONJ -> AND | OR
 """)
+
+parser = nltk.RecursiveDescentParser(rule+lgrammar)
+for t in parser.parse(tokens):
+    print(t)
+    parse_tree = t
+    break'''
