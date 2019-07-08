@@ -6,7 +6,6 @@ import psycopg2
 import nltk
 from nltk.grammar import Nonterminal, Production, CFG
 
-# import StemmerFactory class
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
 # create stemmer
@@ -33,18 +32,19 @@ grammar = CFG.fromstring("""
 S -> QUERIES | VALUES
 QUERIES -> QUERY COMMA QUERIES | QUERY CONJ QUERIES | QUERY
 QUERY -> COMMAND CONDITION
-COMMAND -> COMMAND1 | COMMAND2 | COMMAND3
-COMMAND1 -> 'tampil'
-COMMAND2 -> 'tunjuk' | 'lihat'
-COMMAND3 -> 'hitung' | 'kalkulasi' | 'cari'
+COMMAND -> 'tampil' | 'tunjuk' | 'lihat' | 'hitung' | 'kalkulasi' | 'cari'
 COMMA -> ','
 FIELDS -> FIELD | SPATIALOP FIELDS | FIELD FIELDS | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS
-VALUES -> VALUE CONJ VALUE | VALUE COMMA VALUE | VALUE | VALUE VALUES
+VALUES -> VALUE CONJ VALUE | VALUE COMMA VALUE | VALUE VALUES | VALUE
 CONDITION -> COND CONJ CONDITION | COND COMMA CONDITION | COND COMMA CONJ CONDITION | COND CONDITION | RELATION SEPARATOR CONDITION | COND SEPARATOR CONDITION | SPATIALOP OPERATOR | SPATIALOP COND OPERATOR | COND SPATIALOP OPERATOR | SPATIALOP GEOCONDS | SPATIALOP COND COND | SPATIALOP COND CONJ COND | NOT SPATIALOP COND COND | SPATIALOP COND COND OPERATOR | SPATIALOP COND | NOT SPATIALOP COND | SPATIALOP VALUES | SPATIALOP VALUES CONDITION | SPATIALOPS CONDITION | COND
 GEOCONDS -> GEOCOND COMMA GEOCONDS | GEOCOND CONJ COMMA GEOCOND | GEOCOND
 GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER | POINT COOR OPERATOR
-COND -> PART RELATION | PART RELATION VALUE | PART RELATION FIELD VALUE | FIELDS RELATION | FIELDS OPERATOR | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | RELATION FIELDS VALUE | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | FIELDS VALUE | FIELDS NOT VALUE | RELATION FIELDS | RELATION VALUE | RELATION NOT VALUE | SPATIALOP COND COND | SPATIALOP COND COND OPERATOR | SPATIALOP GEOCONDS | SPATIALOP OPERATOR
+COND -> PART RELATION | PART RELATION VALUE | PART RELATION FIELD VALUE | FIELDS RELATION | FIELDS OPERATOR | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | RELATION FIELDS VALUE | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | FIELDS VALUE | FIELDS NOT VALUE | RELATION FIELDS | RELATION VALUE | RELATION NOT VALUE | SPATIALOP COND COND | SPATIALOP COND COND OPERATOR | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP OPERATOR RELATION VALUE | SPATIALOP
 OPERATOR -> OP NUMBER | OP NUMBER UNIT | NUMBER | NUMBER UNIT
+UNIT -> KM | M | MIL
+KM -> 'kilometer' | 'km'
+M -> 'meter' | 'm'
+MIL -> 'mil'
 GEOMETRY -> SQUARE | RECTANGLE
 SQUARE -> 'persegi'
 RECTANGLE -> 'segiempat' | 'persegi' 'panjang' | 'kotak'
@@ -148,13 +148,6 @@ def removeDup(conds):
 
     return conds
 
-temp = ['R: titik', 'V: a', 'AND', 'R: titik', 'V: b', 'AND', 'R: titik', 'V: b', 'AND', 'O: JARAK', 'O: <', '5']
-#print(temp)
-#print(removeDup(temp))
-
-#'dari' | 'kurang' 'dari' | 'sama' 'dengan'
-# FIELDS -> FIELD FIELD | FIELD | FIELD FIELDS
-
 def findAmountCode(arr, code):
 
     counter = 0
@@ -213,6 +206,8 @@ def getAttrs():
 
         temp = ['id', 'nama', 'geom']
         temp2 = ['id', 'nama', 'id_ibukota', 'geom']
+        restoran = ['franchise', 'alamat', 'id', 'geom']
+        jalan = ['gid', 'fitur', 'nama', 'daerah', 'geom']
 
         attrs = {
             "segitiga": temp,
@@ -221,8 +216,10 @@ def getAttrs():
             "garis": temp,
             "poligon": temp,
             "negara": temp2,
-            "provinsi": temp2,
-            "kota": temp
+            "provinsi":temp2,
+            "kota": temp,
+            "jalan": jalan,
+            "restoran": restoran,
         }
         return attrs
 
@@ -240,6 +237,7 @@ def getGeom():
         "provinsi": temp,
         "kota": temp,
         "restoran": temp,
+        "jalan": temp,
     }
 
     return geoms
@@ -324,14 +322,7 @@ def parse(text):
     numbers = set([match.group(0) for match in re.finditer(r"\d+", text)])
     coordinates = set([match.group(0) for match in re.finditer(r"\(\d+,\d+\)", text)])
     relations = ["segitiga", "kotak", "titik", "garis", "poligon", "negara", "kota", "provinsi", "restoran", "jalan"]
-    fields = ["nama", "ibukota", "geom", "id", "id_ibukota"]
-
-    class Relation:
-
-        def __init__(self, name, attrs, geom):
-            self.name = name
-            self.attrs = attrs
-            self.geom = geom
+    fields = ["nama", "ibukota", "geom", "id", "id_ibukota", "alamat"]
 
     # segitiga: id, nama, geom
     # kotak: id, nama, geom
@@ -356,6 +347,9 @@ def parse(text):
     lhs = Nonterminal(key)
     lproductions.extend([Production(lhs, ["bengawan","solo"])])
     lproductions.extend([Production(lhs, ["us","route","1"])])
+    lproductions.extend([Production(lhs, ["us","route","2"])])
+    lproductions.extend([Production(lhs, ["state","route","2"])])
+    lproductions.extend([Production(lhs, ["state","route","3"])])
     
     # Make a local copy of the grammar with extra productions
     lgrammar = CFG(grammar.start(), lproductions)
@@ -372,7 +366,7 @@ hasil = None
 # menghilangkan 'di', 'yang', 'ada di', 'dengan'
 # ada harus bener-bener kata; alternatif sementara: yang ada
 # jangan ada kata ada dulu
-removeList = ['ada', 'masing', 'tiap', 'dengan', 'besar', 'hadap', 'milik', 'antara', 'meter']
+removeList = ['ada', 'masing', 'tiap', 'dengan', 'besar', 'hadap', 'milik', 'antara', 'meter', 'seluruh']
 prefixList = ['ber-']
 stemList = ['beribukota', 'ibukota']
 
@@ -644,7 +638,13 @@ def collect(node, result):
             if (prevNode=="FIELD"):
                 result["fields"].append('R: '+node[0])
         elif (node.label()=="VALUE"):
-            addUniqueCode(result["relation"], prevValNode, "V: "+node[0])
+            val = ""
+            if (len(node)>0):
+                for temp in node:
+                    val = val + temp + " "
+            else:
+                val = node[0]
+            addUniqueCode(result["relation"], prevValNode, "V: "+val)
             if (prevNode=="RELATION" and isSpatialOps):
                 print("MASUK!")
                 #print(prevValNode)
@@ -652,7 +652,7 @@ def collect(node, result):
                 result["fields"].append("G: "+prevValNode+" "+node[0])
             elif (prevTwo=="FIELD" and prevNode=="RELATION"):
                 #result["fields"].append("R: "+prevValNode)
-                result["fields"].append("V: "+node[0])
+                result["fields"].append("V: "+val)
                 result["cond"].append("R: "+prevValNode)
             elif (prevNode=="RELATION"):
                 result["cond"].append("R: "+prevValNode)
@@ -667,7 +667,7 @@ def collect(node, result):
             elif (prevNode=="FIELD" and prevTwo=="RELATION" and isSpatialOps):
                 print(isSpatialOps)
                 result["fields"].append("G: "+prevValTwo+" "+node[0])
-            result["cond"].append("V: "+node[0])
+            result["cond"].append("V: "+val)
             # Hitung jarak titik A dengan titik B!
             # Tampilkan id titik A, id titik C, dan id titik B jika jarak titik A dengan titik B kurang dari 5 dan jarak titik B dengan titik C lebih dari 7!
             # Ganti dengan pendekatan pohon!
@@ -688,6 +688,7 @@ def collect(node, result):
                     if (prevTwo=="RELATION"):
                         result["cond"].append("R: "+prevValTwo)
                 # KASUS: Tampilkan id titik A dan id titik B jika berjarak kurang dari 5! tidak berlaku
+                # PERHATIKAN: Tampilkan seluruh id jalan "State Route 3" dan id jalan "State Route 2" jika bersinggungan!
                 '''elif (prevTwo=="VALUE"):
                     if (prevThree=="FIELD"):
                         result["cond"].append("R: "+prevValFour)
@@ -854,7 +855,7 @@ def recursiveWalk(cond_node, result):
         print("cond", result["cond"])
    
     else:
-        temp = findCode(result["cond"], "O: OVERLAPS") 
+        '''temp = findCode(result["cond"], "O: OVERLAPS") 
         if (len(temp)>0):
             idx = temp[0]
         else:
@@ -882,7 +883,7 @@ def recursiveWalk(cond_node, result):
                     result["cond"].insert(idx+1, "R: "+result["relation"][2])
             elif (len(result["relation"])==4):
                 result["cond"].insert(idx+1, result["relation"][3])
-                result["cond"].insert(idx+1, "R: "+result["relation"][2])
+                result["cond"].insert(idx+1, "R: "+result["relation"][2])'''
 
     return result
 
@@ -895,12 +896,17 @@ def searchValQuery(query, relation, value):
 
     return query
 
+def getSynonym(field):
+
+    if (field!='id'):
+        return field
+
 def processCond(object1, operation, object2, query):
 
-    print("processCond")
-    print(object1)
-    print(operation)
-    print(object2)
+    #print("processCond")
+    #print(object1)
+    #print(operation)
+    #print(object2)
 
     '''left = ""
     if (len(object1)>0):
@@ -977,7 +983,7 @@ def processCond(object1, operation, object2, query):
                 relation2 = object2[2].replace("R: ", "")
                 rel1 = object2[0].replace("R: ", "")+object2[1].replace("V: ", "")
                 rel2 = object2[2].replace("R: ", "")+object2[3].replace("V: ", "")
-            print(rel1, relation1)
+            #print(rel1, relation1)
             geom1 = "r" + indices[rel1] + "." + geoms[relation1]
             geom2 = "r" + indices[rel2] + "." + geoms[relation2]
             query = query + declareFunctions(op, [geom1, geom2])
@@ -992,8 +998,14 @@ def processCond(object1, operation, object2, query):
         rel2 = ""
         fld2 = ""
         val2 = ""
+
+        # Kasus untuk field belum ada
         if (len(object1)==0):
-            geom1 = geom1 + indices[result["relation"][0]] + "." + geoms[result["relation"][0]]
+            if (not result["relation"][1].startswith("V:")):
+                geom1 = geom1 + indices[result["relation"][0]] + "." + geoms[result["relation"][0]]
+            else:
+                temp = result["relation"][1].replace("V: ", "")
+                geom1 = geom1 + indices[result["relation"][0]+temp] + "." + geoms[result["relation"][0]]
         else:
             rel1 = getFromCode(object1, 'R: ')
             val1 = getFromCode(object1, 'V: ')
@@ -1001,7 +1013,18 @@ def processCond(object1, operation, object2, query):
             geom1 = geom1 + indices[rel1+val1] + "." + geoms[rel1]
 
         if (len(object2)==0):
-            geom2 = geom2 + indices[result["relation"][1]] + "." + geoms[result["relation"][1]]
+            if (not result["relation"][1].startswith("V:")):
+                if (not result["relation"][2].startswith("V:")):
+                    geom2 = geom2 + indices[result["relation"][1]] + "." + geoms[result["relation"][1]]
+                else:
+                    temp = result["relation"][2].replace("V: ", "")
+                    geom2 = geom2 + indices[result["relation"][1]+temp] + "." + geoms[result["relation"][1]]
+            else:
+                if (result["relation"][3].startswith("V:")):
+                    temp = result["relation"][3].replace("V: ", "")
+                    geom2 = geom2 + indices[result["relation"][2]+temp] + "." + geoms[result["relation"][2]]
+                else:
+                    geom2 = geom2 + indices[result["relation"][2]] + "." + geoms[result["relation"][2]]
         elif (object2[0].startswith('G:')):
             geom2 = makeRectangle(object2[1:])
         else:
@@ -1132,7 +1155,7 @@ elif (len(result["fields"])>0):
         if (not elem.startswith("V: ") and not elem.startswith("R: ") and not elem.startswith("G: ") and not elem.startswith("O: ")):
             #print("fields")
             #print(result["fields"][index:])
-            query = query + "r" + indices[extractFirstRelation(result["fields"][index:])] + "." + elem + ", "
+            query = query + "r" + indices[extractFirstRelation(result["fields"][index:])] + "." + getSynonym(elem) + ", "
         elif (elem.startswith("G: ")):
             if (not isFunction):
                 elem = elem.replace("G: ", "")
@@ -1242,10 +1265,10 @@ if (len(result["cond"])>0):
 else:
     print(query)
 
-print("querying to the DB...")
+'''print("querying to the DB...")
 conn = psycopg2.connect(host="localhost", database="sample", user="postgres", password="1234")
 cur = conn.cursor()
 cur.execute(query)
 hasil = cur.fetchall()
 print(hasil)
-cur.close()
+cur.close()'''
