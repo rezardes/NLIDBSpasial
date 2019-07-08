@@ -9,7 +9,7 @@ def checkNode(node, *symbols):
 
     result = False
     for symbol in symbols:
-        if (type(node)!=type("tes")):
+        if (type(node)!=type("tes") and node != None):
             if (node.label()==symbol):
                 result = True
                 break
@@ -63,6 +63,7 @@ def preprocessing(sentence):
 
     sentence = sentence.replace(',', ' xyz')
     sentence = sentence.replace(' irisan', ' irisanabc')
+    sentence = sentence.replace('jangkauan', 'jangkauanabc')
 
     # Proses stemming
     factory = StemmerFactory()
@@ -89,6 +90,7 @@ def preprocessing(sentence):
         output = output.replace(stemList[i], stemList[i+1])
     output = output.replace(' xyz', ' ,')
     output = output.replace('irisanabc', 'irisan')
+    output = output.replace('jangkauanabc', 'jangkauan')
     #print("Hasil remove: "+output)
 
     return output
@@ -183,9 +185,9 @@ print(sentence)
 numbers = set([match.group(0) for match in re.finditer(r"\d+", sentence)])
 coordinates = set([match.group(0) for match in re.finditer(r"\(\d+,\d+\)", sentence)])
 removes = set([match.group(0) for match in re.finditer(r"\w+", sentence)])
-relations = ["segitiga", "kotak", "titik", "garis", "poligon", "negara", "kota", "provinsi", "restoran", "jalan"]
-fields = ["nama", "ibukota", "geom", "id", "id_ibukota", "alamat"]
-values = ["jakarta", "indonesia", "india", "a", "b", "c", "Mexfield", "Exford"]
+relations = ["segitiga", "kotak", "titik", "garis", "poligon", "negara", "kota", "provinsi", "restoran", "jalan", "robot"]
+fields = ["nama", "ibukota", "geom", "id", "id_ibukota", "alamat", "waktu", "jangkauan"]
+values = ["jakarta", "indonesia", "india", "a", "b", "c", "mexfield", "exford"]
 
 grammar = CFG.fromstring(temp+nodes)
 
@@ -210,11 +212,20 @@ except:
         parse_tree = t
         break
 
+if (parse_tree==None):
+    lproductions.extend([literal_production("REMOVES", remove) for remove in removes])
+    lgrammar = CFG(grammar.start(), lproductions)
+    parser = nltk.RecursiveDescentParser(lgrammar)
+    for t in parser.parse(tokens):
+        print(t)
+        parse_tree = t
+        break
+
 removeList = traverseRemoval(parse_tree, [])
 sentence = remove(sentence, removeList)
 print(sentence)
 
-rule = CFG.fromstring("""
+rule = """
 S -> QUERIES | VALUES
 QUERIES -> QUERY COMMA QUERIES | QUERY CONJ QUERIES | QUERY
 QUERY -> COMMAND CONDITION
@@ -230,10 +241,18 @@ GEOMETRY -> SQUARE | RECTANGLE
 POINT -> LU | RU | LB | RB | PUSAT | 'titik'
 SIZE -> SIDE | LENGTH | WIDTH
 CONJ -> AND | OR
-""")
+SPATIALOP -> PANJANG | LUAS | KELILING | INSIDE | OUTSIDE | JARAK | OVERLAP | OVERLAPS | MEETS | ABSIS | ORDINAT
+SPATIALOPS -> SPATIALOP COMMA SPATIALOPS | SPATIALOP CONJ SPATIALOPS | SPATIALOP
+"""
 
-parser = nltk.RecursiveDescentParser(rule+lgrammar)
+grammar = CFG.fromstring(rule+nodes)
+tokens = sentence.split()
+
+# Load grammar into a parser
+lgrammar, lproductions = addSuffixGrammar(grammar)
+parser = nltk.RecursiveDescentParser(lgrammar)
+
 for t in parser.parse(tokens):
     print(t)
     parse_tree = t
-    break'''
+    break
