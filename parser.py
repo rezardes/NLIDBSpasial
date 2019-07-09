@@ -185,7 +185,7 @@ coordinates = set([match.group(0) for match in re.finditer(r"\(\d+,\d+\)", sente
 removes = set([match.group(0) for match in re.finditer(r"\w+", sentence)])
 relations = ["segitiga", "kotak", "titik", "garis", "poligon", "negara", "kota", "provinsi", "restoran", "jalan"]
 fields = ["nama", "ibukota", "geom", "id", "id_ibukota", "alamat"]
-values = ["jakarta", "indonesia", "india", "a", "b", "c", "Mexfield", "Exford"]
+values = ["jakarta", "indonesia", "india", "a", "b", "c", "mexfield", "exford"]
 
 grammar = CFG.fromstring(temp+nodes)
 
