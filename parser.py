@@ -5,11 +5,17 @@ from nltk.grammar import Nonterminal, Production, CFG
 
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
+numbers = []
+coordinates = []
+relations = ["segitiga", "kotak", "titik", "garis", "poligon", "negara", "kota", "provinsi", "restoran", "jalan", "robot"]
+fields = ["nama", "ibukota", "geom", "id", "id_ibukota", "alamat", "waktu", "jangkauan"]
+values = ["jakarta", "indonesia", "india", "a", "b", "c", "mexfield", "exford"]
+
 def checkNode(node, *symbols):
 
     result = False
     for symbol in symbols:
-        if (type(node)!=type("tes")):
+        if (type(node)!=type("tes") and node != None):
             if (node.label()==symbol):
                 result = True
                 break
@@ -63,6 +69,7 @@ def preprocessing(sentence):
 
     sentence = sentence.replace(',', ' xyz')
     sentence = sentence.replace(' irisan', ' irisanabc')
+    sentence = sentence.replace('jangkauan', 'jangkauanabc')
 
     # Proses stemming
     factory = StemmerFactory()
@@ -89,6 +96,7 @@ def preprocessing(sentence):
         output = output.replace(stemList[i], stemList[i+1])
     output = output.replace(' xyz', ' ,')
     output = output.replace('irisanabc', 'irisan')
+    output = output.replace('jangkauanabc', 'jangkauan')
     #print("Hasil remove: "+output)
 
     return output
@@ -110,130 +118,146 @@ def remove(sentence, removeList):
         sentence = sentence.replace(' '+elem+' ', ' ')
     return sentence
 
+def parse(sentence):
 
-# Node Operator
-nodes = """
-LESS -> 'kurang' 'dari'
-MORE -> 'lebih' 'dari'
-EQUAL -> 'sama' 'dengan' | 'besar'
-NOT -> 'tidak' | 'bukan'
-AND -> 'dan' | 'serta'
-OR -> 'atau'
-COMMA -> ','
-"""
+    numbers = set([match.group(0) for match in re.finditer(r"\d+", sentence)])
+    coordinates = set([match.group(0) for match in re.finditer(r"\(\d+,\d+\)", sentence)])
+    removes = set([match.group(0) for match in re.finditer(r"\w+", sentence)])
 
-# Node Spatial Operator
-temp = """
-ABSIS -> 'absis'
-ORDINAT -> 'ordinat'
-JARAK -> 'jarak'
-INSIDE -> 'dalam' | 'pada'
-OUTSIDE -> 'luar'
-PANJANG -> 'panjang'
-LUAS -> 'luas'
-KELILING -> 'keliling'
-OVERLAPS -> 'iris' | 'singgung'
-OVERLAP -> 'irisan'
-MEETS -> 'di' 'samping' | 'sebelah'
-"""
-nodes = nodes + temp
+    # Node Operator
+    nodes = """
+    LESS -> 'kurang' 'dari'
+    MORE -> 'lebih' 'dari'
+    EQUAL -> 'sama' 'dengan' | 'besar'
+    NOT -> 'tidak' | 'bukan'
+    AND -> 'dan' | 'serta'
+    OR -> 'atau'
+    COMMA -> ','
+    """
 
-# Node Satuan
-temp = """
-KM -> 'kilometer' | 'km'
-M -> 'meter' | 'm'
-MIL -> 'mil'
-"""
-nodes = nodes + temp
+    # Node Spatial Operator
+    temp = """
+    ABSIS -> 'absis'
+    ORDINAT -> 'ordinat'
+    JARAK -> 'jarak'
+    INSIDE -> 'dalam' | 'pada'
+    OUTSIDE -> 'luar'
+    PANJANG -> 'panjang'
+    LUAS -> 'luas'
+    KELILING -> 'keliling'
+    OVERLAPS -> 'iris' | 'singgung'
+    OVERLAP -> 'irisan'
+    MEETS -> 'di' 'samping' | 'sebelah'
+    """
+    nodes = nodes + temp
 
-# Node Kata Kunci Perintah
-temp = """
-COMMAND ->  'tampil' | 'tunjuk' | 'lihat' | 'hitung' | 'kalkulasi' | 'cari'
-"""
-nodes = nodes + temp
+    # Node Satuan
+    temp = """
+    KM -> 'kilometer' | 'km'
+    M -> 'meter' | 'm'
+    MIL -> 'mil'
+    """
+    nodes = nodes + temp
 
-# Node Kata Kunci Geometri
-temp = """
-SIDE -> 'sisi'
-LENGTH -> 'panjang'
-WIDTH -> 'lebar'
-LU -> 'titik' 'kiri' 'atas'
-RB -> 'titik' 'kanan' 'bawah'
-PUSAT -> 'titik' 'pusat'
-SQUARE -> 'persegi'
-RECTANGLE -> 'segiempat' | 'persegi' 'panjang' | 'kotak'
-"""
-nodes = nodes + temp
+    # Node Kata Kunci Perintah
+    temp = """
+    COMMAND ->  'tampil' | 'tunjuk' | 'lihat' | 'hitung' | 'kalkulasi' | 'cari'
+    """
+    nodes = nodes + temp
 
-# Node sebagai tagger
-# Kalo sempet dilakukan secara otomatis
-temp = """
-S -> WORDS
-WORDS -> WORD WORDS | WORD  
-WORD -> SIDE | LENGTH | WIDTH | LU | RB | PUSAT | SQUARE | RECTANGLE | COMMAND
-WORD -> MIL | M | KM | LESS | MORE | EQUAL | NOT | AND | OR | COMMA | ABSIS
-WORD -> ORDINAT | JARAK | INSIDE | OUTSIDE | PANJANG | LUAS | KELILING | OVERLAP
-WORD -> OVERLAPS | MEETS | FIELD | RELATION | VALUE | REMOVES
-"""
+    # Node Kata Kunci Geometri
+    temp = """
+    SIDE -> 'sisi'
+    LENGTH -> 'panjang'
+    WIDTH -> 'lebar'
+    LU -> 'titik' 'kiri' 'atas'
+    RB -> 'titik' 'kanan' 'bawah'
+    PUSAT -> 'titik' 'pusat'
+    SQUARE -> 'persegi'
+    RECTANGLE -> 'segiempat' | 'persegi' 'panjang' | 'kotak'
+    """
+    nodes = nodes + temp
 
-sentence = input()
-sentence = preprocessing(sentence)
-print(sentence)
+    # Node sebagai tagger
+    # Kalo sempet dilakukan secara otomatis
+    temp = """
+    S -> WORDS
+    WORDS -> WORD WORDS | WORD  
+    WORD -> SIDE | LENGTH | WIDTH | LU | RB | PUSAT | SQUARE | RECTANGLE | COMMAND
+    WORD -> MIL | M | KM | LESS | MORE | EQUAL | NOT | AND | OR | COMMA | ABSIS
+    WORD -> ORDINAT | JARAK | INSIDE | OUTSIDE | PANJANG | LUAS | KELILING | OVERLAP
+    WORD -> OVERLAPS | MEETS | FIELD | RELATION | VALUE | REMOVES
+    """
 
-numbers = set([match.group(0) for match in re.finditer(r"\d+", sentence)])
-coordinates = set([match.group(0) for match in re.finditer(r"\(\d+,\d+\)", sentence)])
-removes = set([match.group(0) for match in re.finditer(r"\w+", sentence)])
-relations = ["segitiga", "kotak", "titik", "garis", "poligon", "negara", "kota", "provinsi", "restoran", "jalan"]
-fields = ["nama", "ibukota", "geom", "id", "id_ibukota", "alamat"]
-values = ["jakarta", "indonesia", "india", "a", "b", "c", "mexfield", "exford"]
+    sentence = preprocessing(sentence)
+    print(sentence)
 
-grammar = CFG.fromstring(temp+nodes)
+    grammar = CFG.fromstring(temp+nodes)
 
-# Load grammar into a parser
-lgrammar, lproductions = addSuffixGrammar(grammar)
-parser = nltk.RecursiveDescentParser(lgrammar)
-
-tokens = sentence.split()
-#print(lgrammar)
-parse_tree = None
-try:
-    for t in parser.parse(tokens):
-        print(t)
-        parse_tree = t
-        break
-except:
-    lproductions.extend([literal_production("REMOVES", remove) for remove in removes])
-    lgrammar = CFG(grammar.start(), lproductions)
+    # Load grammar into a parser
+    lgrammar, lproductions = addSuffixGrammar(grammar)
     parser = nltk.RecursiveDescentParser(lgrammar)
+
+    tokens = sentence.split()
+    #print(lgrammar)
+    parse_tree = None
+    try:
+        for t in parser.parse(tokens):
+            print(t)
+            parse_tree = t
+            break
+    except:
+        lproductions.extend([literal_production("REMOVES", remove) for remove in removes])
+        lgrammar = CFG(grammar.start(), lproductions)
+        parser = nltk.RecursiveDescentParser(lgrammar)
+        for t in parser.parse(tokens):
+            print(t)
+            parse_tree = t
+            break
+
+    if (parse_tree==None):
+        lproductions.extend([literal_production("REMOVES", remove) for remove in removes])
+        lgrammar = CFG(grammar.start(), lproductions)
+        parser = nltk.RecursiveDescentParser(lgrammar)
+        for t in parser.parse(tokens):
+            print(t)
+            parse_tree = t
+            break
+
+    removeList = traverseRemoval(parse_tree, [])
+    sentence = remove(sentence, removeList)
+    print(sentence)
+
+    rule = """
+    S -> QUERIES | VALUES
+    QUERIES -> QUERY COMMA QUERIES | QUERY CONJ QUERIES | QUERY
+    QUERY -> COMMAND CONDITION
+    FIELDS -> FIELD | SPATIALOP FIELDS | FIELD FIELDS | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS
+    VALUES -> VALUE CONJ VALUE | VALUE COMMA VALUE | VALUE VALUES | VALUE
+    CONDITION -> COND CONJ CONDITION | COND COMMA CONDITION | COND COMMA CONJ CONDITION | COND CONDITION | RELATION SEPARATOR CONDITION | COND SEPARATOR CONDITION | SPATIALOP OPERATOR | SPATIALOP COND OPERATOR | COND SPATIALOP OPERATOR | SPATIALOP GEOCONDS | SPATIALOP COND COND | SPATIALOP COND CONJ COND | NOT SPATIALOP COND COND | SPATIALOP COND COND OPERATOR | SPATIALOP COND | NOT SPATIALOP COND | SPATIALOP VALUES | SPATIALOP VALUES CONDITION | SPATIALOPS CONDITION | COND
+    GEOCONDS -> GEOCOND COMMA GEOCONDS | GEOCOND CONJ COMMA GEOCOND | GEOCOND
+    GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER | POINT COOR OPERATOR
+    COND -> PART RELATION | PART RELATION VALUE | PART RELATION FIELD VALUE | FIELDS RELATION | FIELDS OPERATOR | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | RELATION FIELDS VALUE | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | FIELDS VALUE | FIELDS NOT VALUE | RELATION FIELDS | RELATION VALUE | RELATION NOT VALUE | SPATIALOP COND COND | SPATIALOP COND COND OPERATOR | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP OPERATOR RELATION VALUE | SPATIALOP
+    OPERATOR -> OP NUMBER | OP NUMBER UNIT | NUMBER | NUMBER UNIT
+    UNIT -> KM | M | MIL
+    GEOMETRY -> SQUARE | RECTANGLE
+    POINT -> LU | RU | LB | RB | PUSAT | 'titik'
+    SIZE -> SIDE | LENGTH | WIDTH
+    CONJ -> AND | OR
+    SPATIALOP -> PANJANG | LUAS | KELILING | INSIDE | OUTSIDE | JARAK | OVERLAP | OVERLAPS | MEETS | ABSIS | ORDINAT
+    SPATIALOPS -> SPATIALOP COMMA SPATIALOPS | SPATIALOP CONJ SPATIALOPS | SPATIALOP
+    """
+
+    grammar = CFG.fromstring(rule+nodes)
+    tokens = sentence.split()
+
+    # Load grammar into a parser
+    lgrammar, lproductions = addSuffixGrammar(grammar)
+    parser = nltk.RecursiveDescentParser(lgrammar)
+
     for t in parser.parse(tokens):
         print(t)
         parse_tree = t
         break
 
-removeList = traverseRemoval(parse_tree, [])
-sentence = remove(sentence, removeList)
-print(sentence)
-
-rule = CFG.fromstring("""
-S -> QUERIES | VALUES
-QUERIES -> QUERY COMMA QUERIES | QUERY CONJ QUERIES | QUERY
-QUERY -> COMMAND CONDITION
-FIELDS -> FIELD | SPATIALOP FIELDS | FIELD FIELDS | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS
-VALUES -> VALUE CONJ VALUE | VALUE COMMA VALUE | VALUE VALUES | VALUE
-CONDITION -> COND CONJ CONDITION | COND COMMA CONDITION | COND COMMA CONJ CONDITION | COND CONDITION | RELATION SEPARATOR CONDITION | COND SEPARATOR CONDITION | SPATIALOP OPERATOR | SPATIALOP COND OPERATOR | COND SPATIALOP OPERATOR | SPATIALOP GEOCONDS | SPATIALOP COND COND | SPATIALOP COND CONJ COND | NOT SPATIALOP COND COND | SPATIALOP COND COND OPERATOR | SPATIALOP COND | NOT SPATIALOP COND | SPATIALOP VALUES | SPATIALOP VALUES CONDITION | SPATIALOPS CONDITION | COND
-GEOCONDS -> GEOCOND COMMA GEOCONDS | GEOCOND CONJ COMMA GEOCOND | GEOCOND
-GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER | POINT COOR OPERATOR
-COND -> PART RELATION | PART RELATION VALUE | PART RELATION FIELD VALUE | FIELDS RELATION | FIELDS OPERATOR | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | RELATION FIELDS VALUE | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | FIELDS VALUE | FIELDS NOT VALUE | RELATION FIELDS | RELATION VALUE | RELATION NOT VALUE | SPATIALOP COND COND | SPATIALOP COND COND OPERATOR | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP OPERATOR RELATION VALUE | SPATIALOP
-OPERATOR -> OP NUMBER | OP NUMBER UNIT | NUMBER | NUMBER UNIT
-UNIT -> KM | M | MIL
-GEOMETRY -> SQUARE | RECTANGLE
-POINT -> LU | RU | LB | RB | PUSAT | 'titik'
-SIZE -> SIDE | LENGTH | WIDTH
-CONJ -> AND | OR
-""")
-
-parser = nltk.RecursiveDescentParser(rule+lgrammar)
-for t in parser.parse(tokens):
-    print(t)
-    parse_tree = t
-    break'''
+    return parse_tree
