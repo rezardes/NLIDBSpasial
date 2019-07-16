@@ -3,10 +3,18 @@ import sys
 import itertools
 import psycopg2
 
-from parser import *
+from parsers import *
 
 import nltk
 from nltk.grammar import Nonterminal, Production, CFG
+
+print("Masukkan basis data yang digunakan: ")
+database_name = input()
+
+# Jangan lupa ganti jadi posisi robot
+
+#def extractPrevLeft():
+
 
 # IMPLEMENTASI MASIH SALAH
 def getElmtConds(conds):
@@ -131,18 +139,27 @@ def getAttrs():
         temp2 = ['id', 'nama', 'id_ibukota', 'geom']
         restoran = ['franchise', 'alamat', 'id', 'geom']
         jalan = ['gid', 'fitur', 'nama', 'daerah', 'geom']
+        burung = ['id', 'nama']
+        posisi = ['id', 'id_burung', 'waktu', 'coordinates']
+        #posisi = ['id', 'id_robot', 'waktu', 'coordinates']
+        franchise = ['id', 'franchise']
 
         attrs = {
             "segitiga": temp,
+            "lingkaran": temp,
             "kotak": temp,
             "titik": temp,
             "garis": temp,
             "poligon": temp,
             "negara": temp2,
+            "sungai": temp,
             "provinsi":temp2,
             "kota": temp,
             "jalan": jalan,
             "restoran": restoran,
+            "burung": burung,
+            "posisi": posisi,
+            "franchise": franchise,
         }
         return attrs
 
@@ -157,19 +174,107 @@ def getGeom():
         "garis": temp,
         "poligon": temp,
         "negara": temp,
+        "sungai": temp,
         "provinsi": temp,
         "kota": temp,
         "restoran": temp,
         "jalan": temp,
+        "posisi": "coordinates",
+        "lingkaran": temp,
     }
 
     return geoms
 
-def getValues():
+def getTypeGeom():
 
-    values = ["jakarta", "indonesia", "india", "a", "b", "c"]
-    return values
+    temp = "polygon"
 
+    types = {
+        "segitiga": temp,
+        "kotak": temp,
+        "titik": temp,
+        "garis": temp,
+        "poligon": temp,
+        "negara": temp,
+        "sungaigeom": temp,
+        "provinsi": temp,
+        "kota": "point",
+        "restorangeom": "point",
+        "jalangeom": "line",
+        "posisicoordinates": "point",
+        "lingkarangeom": "polygon",
+    }
+
+    return types
+
+def getConnection(rel):
+
+    connection = {
+        "restoran": ["franchise"],
+        "franchise": ["restoran"],
+        "robot": ["posisi"],
+        "posisi": ["burung"], #robot
+        "burung": ["posisi"],
+    }
+
+    if rel in connection:
+        return connection[rel]
+    else:
+        return ''
+
+def displacement(fromUnit, toUnit):
+
+    basicUnit = ["KM", "HM", "DAM", "M", "DM", "CM", "MM"]
+    otherUnit = {"MIL": 1000}
+    calc = 1
+
+    if (fromUnit in basicUnit and toUnit in basicUnit):
+        idxF = basicUnit.index(fromUnit)
+        idxT = basicUnit.index(toUnit)
+        calc = pow(10, idxT-idxF)
+    elif (fromUnit in otherUnit):
+        idxF = basicUnit.index("M")
+        idxT = basicUnit.index(toUnit)
+        calc = pow(10, idxT-idxF)*otherUnit[fromUnit]
+
+    return calc
+
+
+def convert(value, fromUnit, toUnit):
+
+    return str(value*displacement(fromUnit, toUnit))
+
+
+def getSRID():
+
+    temp = "2163"
+
+    geoms = {
+        "segitigageom": temp,
+        "kotakgeom": temp,
+        "titikgeom": temp,
+        "garisgeom": temp,
+        "poligongeom": temp,
+        "negarageom": temp,
+        "sungaigeom": temp,
+        "provinsigeom": temp,
+        "kotageom": temp,
+        "restorangeom": temp,
+        "jalangeom": temp,
+        "posisicoordinates": "2163",
+    }
+
+    return geoms
+
+def getUnit():
+
+    temp = "M"
+
+    units = {
+        "2163": temp
+    }
+
+    return units
 
 def makeRectangle(pointList, srid='2163'):
 
@@ -218,9 +323,12 @@ def makeRectangle(pointList, srid='2163'):
 
     return 'ST_MakeEnvelope(' + point1[0] + ', ' + point1[1] + ', ' + point2[0] + ', ' + point2[1] + ', ' + srid + ')'
 
+print("\nMasukkan query:")
 attrs = getAttrs()
 geoms = getGeom()
-values = getValues()
+units = getUnit()
+srids = getSRID()
+types = getTypeGeom()
 
 # menghilangkan 'di', 'yang', 'ada di', 'dengan'
 # ada harus bener-bener kata; alternatif sementara: yang ada
@@ -232,6 +340,7 @@ stemList = ['beribukota', 'ibukota']
 # tampilkan nama mahasiswa yang nilainya lebih dari 50 dan kurang dari 100
 # stemming process
 sentence = input()
+#print("\nMenguraikan kalimat...")
 sentence = parse(sentence)
 print(sentence)
 
@@ -270,7 +379,7 @@ parameter = {
         "PANJANG": 1,
         "LUAS": 1,
         "KELILING": 1,
-        "INSIDE": 2,
+        "IN": 2,
         "OUTSIDE": 2,
         "JARAK": 2,
         "OVERLAP": 2,
@@ -300,7 +409,7 @@ def mapToFunctions(keyword):
         "PANJANG": 'ST_Length',
         "LUAS": 'ST_Area',
         "KELILING": 'ST_Perimeter',
-        "INSIDE": 'ST_Within',
+        "IN": 'ST_Within',
         "OUTSIDE": 'NOT ST_Within',
         "JARAK": 'ST_Distance',
         "OVERLAP": 'ST_Intersection',
@@ -315,9 +424,24 @@ def mapToFunctions(keyword):
     else:
         return 'NOT FOUND'
 
-def declareFunctions(keyword, params):
+def declareAgg(agg):
+    
+    aggs = {
+        "SUM": "SUM",
+        "MAX": "MAX",
+        "MIN": "MIN",
+        "COUNT": "COUNT"
+    }
+
+    return aggs[agg]
+
+def declareFunctions(keyword, params, *types):
 
     function = mapToFunctions(keyword)
+    if (len(types)>0):
+        if ( ("point" in types[0] or "line" in types[0]) and ("point" in types[1] or "line" in types[1]) and keyword=="IN" ):  
+            function = "ST_Intersects"
+
     if (parameter[keyword]==1):
         return function + '(' + params[0] + ')'
     elif (parameter[keyword]==2):
@@ -385,15 +509,9 @@ isColumn = True
 isGeoCond = False
 isPart = False
 isSpatialOps = False
-
-def checkNode(node, *symbols):
-
-    result = False
-    for symbol in symbols:
-        if (node.label()==symbol):
-            result = True
-            break
-    return result
+isField = False
+isComma = False
+isRelation = False
 
 def isThereNonCode(arrs, *codes):
 
@@ -426,7 +544,7 @@ def extractFirstRelation(arrs):
         else:
             break
     
-    return relation+value
+    return relation, value
 
 def collect(node, result):
 
@@ -440,14 +558,18 @@ def collect(node, result):
     global prevValFour
     global counter
     global isColumn
+    global isField
     global isPart
     global isSpatialOps
+    # Perhatikan kasus komma di kondisi lain
+    global isComma
+    global isRelation
     #global isGeoCond
 
-    if (type(node)==type("tes")):
-        print("tes")
+    #if (type(node)==type("tes")):
+        #print("tes")
 
-    elif (checkNode(node, "QUERY", "QUERIES", "COND", "CONDITION", "FIELDS", "OPERATOR", "GEOCONDS", "GEOCOND", "SPATIALOPS")):
+    if (checkNode(node, "QUERY", "QUERIES", "COND", "CONDITION", "FIELDS", "OPERATOR", "GEOCONDS", "GEOCOND", "SPATIALOPS")):
         
         if (node.label()=="SPATIALOPS"):
             isSpatialOps = True
@@ -458,42 +580,60 @@ def collect(node, result):
         #    isGeoCond = False
     else:
         #print("prevNode "+prevNode)
-        if (node.label()=="FIELD" and prevNode!="RELATION"):
-            result["fields"].append(node[0])
+        if (node.label()=="FIELD" and not isRelation):
+            if (isColumn):
+                result["fields"].append(node[0])
+            isField = True
         elif (node.label()=="RELATION"):
+            isRelation = True
             result["relation"].append(node[0])
             if (prevNode=="FIELD"):
+                isField = True
                 result["fields"].append('R: '+node[0])
         elif (node.label()=="VALUE"):
             val = ""
             if (len(node)>1):
                 for temp in node:
                     val = val + temp + " "
+
+                temp = list(val)
+                temp[len(temp)-1] = ""
+                val = "".join(temp)
+                #val = val.reverse()
+                #val.replace(" ", "")
+                #val = val.reverse()
             else:
                 val = node[0]
-            addUniqueCode(result["relation"], prevValNode, "V: "+val)
+            #print(prevValNode, " ", val)
+            if (prevNode=="RELATION"):
+                addUniqueCode(result["relation"], prevValNode, "V: "+val)
             if (prevNode=="RELATION" and isSpatialOps):
                 #print("MASUK!")
                 #print(prevValNode)
                 result["cond"].append("R: "+prevValNode)
-                result["fields"].append("G: "+prevValNode+" "+node[0])
+                result["fields"].append("G: "+prevValNode+" "+val)
             elif (prevTwo=="FIELD" and prevNode=="RELATION"):
+                #print("3")
                 #result["fields"].append("R: "+prevValNode)
                 result["fields"].append("V: "+val)
                 result["cond"].append("R: "+prevValNode)
             elif (prevNode=="RELATION"):
                 result["cond"].append("R: "+prevValNode)
-                if (isColumn and not isSpatialOps):
-                    result["fields"].append("G: "+prevValNode+" "+node[0])
+                if (isColumn and not isSpatialOps and not isField and not isComma):
+                    result["fields"].append("G: "+prevValNode+" "+val)
             elif (prevNode=="FIELD" and prevTwo=="RELATION"):
+                #print("2")
                 result["cond"].append("R: "+prevValTwo)
                 result["cond"].append("F: "+prevValNode)
-                result["fields"].append("G: "+prevValTwo+" "+node[0])
+                result["fields"].append("G: "+prevValTwo+" "+val)
                 #result["fields"].append("R: "+prevValTwo)
                 #result["fields"].append("V: "+node[0])
             elif (prevNode=="FIELD" and prevTwo=="RELATION" and isSpatialOps):
-                print(isSpatialOps)
-                result["fields"].append("G: "+prevValTwo+" "+node[0])
+                #print("1")
+                #print(isSpatialOps)
+                result["fields"].append("G: "+prevValTwo+" "+val)
+            elif (prevNode=="FIELD"):
+                result["cond"].append("F: "+prevValNode)
             result["cond"].append("V: "+val)
             # Hitung jarak titik A dengan titik B!
             # Tampilkan id titik A, id titik C, dan id titik B jika jarak titik A dengan titik B kurang dari 5 dan jarak titik B dengan titik C lebih dari 7!
@@ -505,7 +645,12 @@ def collect(node, result):
                 result["cond"].append("AND")
             elif (prevTwo!="SPATIALOP" and prevFour!="SPATIALOP"):
                 result["cond"].append("AND")
+
+        elif (node.label()=="AGGREGATE"):
+            result["fields"].append("A: "+node[0].label())
             
+        elif (node.label()=="NOT"):
+            result["cond"].append("O: NOT")
 
         elif (node.label()=="SPATIALOP"):
 
@@ -513,7 +658,16 @@ def collect(node, result):
             if (len(result["cond"]) > 0):
                 if (result["cond"][len(result["cond"])-1]=="AND" or result["cond"][len(result["cond"])-1]=="OR"):
                     if (prevTwo=="RELATION"):
+                        #print("YAAY!!!")
                         result["cond"].append("R: "+prevValTwo)
+                        if (prevNode=="VALUE"):
+                            result["cond"].append("V: "+prevValNode)
+                        
+            # Untuk dua kolom bagaimana?
+            # Mungkin bagian ini akan menyebabkan redudansi
+            #elif (prevNode=="SEPARATOR" and prevTwo=="RELATION"):
+                #result["cond"].append("R: "+prevValTwo)
+
                 # KASUS: Tampilkan id titik A dan id titik B jika berjarak kurang dari 5! tidak berlaku
                 # PERHATIKAN: Tampilkan seluruh id jalan "State Route 3" dan id jalan "State Route 2" jika bersinggungan!
                 '''elif (prevTwo=="VALUE"):
@@ -523,7 +677,7 @@ def collect(node, result):
                         result["cond"].append("R: "+prevValThree)
                     result["cond"].append("V: "+prevValTwo)'''
 
-            if (isColumn):
+            if (isColumn and not isField):
                 result["fields"].append("O: "+node[0].label())
             else:
                 result["cond"].append("O: "+node[0].label())
@@ -555,6 +709,9 @@ def collect(node, result):
                 result["cond"].append("F: "+prevValNode)
             result["cond"].append(node[0])
             result["cond"].append("AND")
+        elif (node.label()=="UNIT"):
+            result["cond"][len(result["cond"])-1] = "U: "+node[0].label()
+            result["cond"].append("AND")
         elif (node.label()=="GEOMETRY"): 
             result["cond"].append("G: "+node[0].label())
         elif (node.label()=="POINT" or node.label()=="SIZE"):
@@ -563,6 +720,8 @@ def collect(node, result):
             result["cond"].append(node[0])
         elif (node.label()=="PART"):
             isPart = True
+        elif (node.label()=="COMMA"):
+            isComma = True
 
 
         prevFour = prevThree
@@ -618,7 +777,11 @@ def getFromCode(arrs, code):
             return arr.replace(code, '')
     return ''
 
+appendWhere = ''
+
 def recursiveWalk(cond_node, result):
+
+    global appendWhere
 
     result = collect(cond_node, result)
 
@@ -632,12 +795,28 @@ def recursiveWalk(cond_node, result):
     # Sementara pake relation 0
     # KASUS Tampilkan segitiga A yang ... dan segitiga B yang ...
 
+    # PERHATIKAN pula kasus relasi lebih dari satu
+    for i in range(0, len(result["fields"])):
+        elem = result["fields"][i]
+        if (not elem.startswith("V: ") and not elem.startswith("R: ") and not elem.startswith("G: ") and not elem.startswith("O: ") and not elem.startswith("A: ")):
+            if (i+1 < len(result["fields"])):
+                if (result["fields"][i+1].startswith("R: ")):
+                    rel = result["fields"][i+1].replace('R: ', '')
+                    relAns = ""
+                    connection = getConnection(rel)
+                    for connect in connection:
+                        if (elem in attrs[connect]):
+                            relAns = connect
+                    if (relAns!=""):
+                        result["relation"].append(relAns)
+                    #appendWhere = rel + "." +  + " = " +  relAns + "." + 
+
     if (isPart):
         del(result["fields"][:])
         indices = findCode(result["cond"], "O: OVERLAPS")
         for idx in indices:
 
-            print(result["fields"])
+            #print(result["fields"])
 
             idxFound = len(result["cond"])-1
             for i in range(idx+1, len(result["cond"])):
@@ -649,15 +828,15 @@ def recursiveWalk(cond_node, result):
                 else:
                     result["fields"].append("G: "+result["cond"][i])
 
-                print(result["fields"])
+                #print(result["fields"])
 
-            print(idx, idxFound)
+            #print(idx, idxFound)
             for i in range(idxFound, idx, -1):
                 result["cond"].pop(i)
 
             result["fields"].insert(0, result["cond"][idx])
             result["cond"].pop(idx)
-            print(result["fields"])
+            #print(result["fields"])
 
             idxFound = 0
             for i in range(idx-1, 0, -1):
@@ -670,16 +849,16 @@ def recursiveWalk(cond_node, result):
                     result["fields"].append("G: "+result["cond"][i])
                 result["fields"].reverse()
                 #print(i)
-                print(result["fields"])
+                #print(result["fields"])
 
-            print(idx-1, idxFound-1)
+            #print(idx-1, idxFound-1)
             for i in range(idx-1, idxFound-1, -1):
-                print(i)
+                #print(i)
                 result["fields"].insert(0, result["cond"][i])
                 result["cond"].pop(i)
             
         
-        print("cond", result["cond"])
+        #print("cond", result["cond"])
    
     else:
         '''temp = findCode(result["cond"], "O: OVERLAPS") 
@@ -714,6 +893,30 @@ def recursiveWalk(cond_node, result):
 
     return result
 
+def getDefaultAttr(relation):
+
+    temp = "nama"
+    relations = {
+        "segitiga": temp,
+        "kotak": temp,
+        "titik": temp,
+        "garis": temp,
+        "poligon": temp,
+        "negara": temp,
+        "sungai": temp,
+        "provinsi": temp,
+        "kota": temp,
+        "restoran": "franchise",
+        "jalan": temp,
+        "robot": temp,
+        "burung": temp,
+        "posisi": "coordinates",
+        "franchise": "franchise",
+        "lingkaran": temp,
+    }
+
+    return relations[relation]
+
 def searchValQuery(query, relation, value):
 
     query = query + "("
@@ -747,19 +950,28 @@ def processCond(object1, operation, object2, query):
     if (len(operation)>0):
         op = operation[0]
 
-    if (len(operation)>1):
-        if (operation[1]=="INSIDE"):
+    '''if (len(operation)>1):
+        if (operation[1]=="IN"):
             op = "OUTSIDE"
         elif (operation[1]=="OUTSIDE"):
-            op = "INSIDE"
+            op = "IN"
         elif (operation[0]=="LUAS" or operation[0]=="KELILING" or operation[0]=="PANJANG"):
-            op = operation[0]
+            op = operation[0]'''
 
-    if (op=="INSIDE" or op=="OUTSIDE"):
+    if (op=="IN" or op=="OUTSIDE"):
+        #print("IN")
         geom1 = ""
         geom2 = ""
         rel1 = getFromCode(object1, 'R: ')
         val1 = getFromCode(object1, 'V: ')
+        if (not rel1 in geoms):
+            for con in getConnection(rel1):
+                if (con in geoms):
+                    rel1 = con
+                    val1 = ""
+        rel2 = ""
+        val2 = ""
+        val1Id = val1.replace(' ', '')
         if (object2[0]=="RECTANGLE"):
             geom2 = makeRectangle(object2[1:])
             '''leftUpper = []
@@ -774,23 +986,36 @@ def processCond(object1, operation, object2, query):
         else:
             rel2 = getFromCode(object2, 'R: ')
             val2 = getFromCode(object2, 'V: ')
-            geom2 = "r" + indices[rel2+val2] + "." + geoms[rel2]
+            
+            if (not rel2 in geoms):
+                for con in getConnection(rel2):
+                    if (con in geoms):
+                        rel2 = con
+                        val2 = ""
+            val2Id = val2.replace(' ', '')
+            geom2 = "r" + indices[rel2+val2Id] + "." + geoms[rel2]
 
         geom1 = "r" + indices[rel1+val1] + "." + geoms[rel1]
         
-        query = query + declareFunctions(op, [geom1, geom2])
+        query = query + declareFunctions(op, [geom1, geom2], types[rel1+geoms[rel1]], types[rel2+geoms[rel2]])
         if (val2!=""):
             query = query + " AND "
-            query = searchValQuery(query, rel2, val2)
+            #val2Id = val2.replace(' ', '')
+            query = query + "r" + indices[rel2+val2Id] + "." + getDefaultAttr(rel2) + " = '" + val2 + "'"
+            #query = searchValQuery(query, rel2, val2)
     elif (op=="JARAK"):
         if (len(object1)==0):
-            if (len(object2)==1):
+            if (len(object2)==1 or len(object2)==2):
                 relation1 = result["relation"][0]
                 
                 if (result["relation"][1].startswith("V: ")):
-                    rel1 = result["relation"][0]+result["relation"][1].replace("V: ", "")
+                    temp = result["relation"][1].replace("V: ", "")
+                    temp = temp.replace(" ", "")
+                    rel1 = result["relation"][0]+temp
                     if (len(result["relation"])>=3):
-                        rel2 = result["relation"][2]+result["relation"][3].replace("V: ", "")
+                        temp = result["relation"][3].replace("V: ", "")
+                        temp = temp.replace(" ", "")
+                        rel2 = result["relation"][2]+temp
                     else:
                         rel2 = result["relation"][2]
                     relation2 = result["relation"][2]
@@ -798,9 +1023,13 @@ def processCond(object1, operation, object2, query):
                     rel1 = result["relation"][0]
                     if (len(result["relation"])>=2):
                         if (result["relation"][2].startswith('F')):
-                            rel2 = result["relation"][1]+result["relation"][2].replace("F: ", "")+result["relation"][3].replace("N: ", "")
+                            temp = result["relation"][2].replace("F: ", "")
+                            temp = temp.replace(" ", "")
+                            rel2 = result["relation"][1]+temp+result["relation"][3].replace("N: ", "")
                         else:
-                            rel2 = result["relation"][1]+result["relation"][2].replace("V: ", "")
+                            temp = result["relation"][2].replace("V: ", "")
+                            temp = temp.replace(" ", "")
+                            rel2 = result["relation"][1]+temp
                     else:
                         rel2 = result["relation"][1] 
                     relation2 = result["relation"][1]             
@@ -808,13 +1037,21 @@ def processCond(object1, operation, object2, query):
                 right = object2[4]
                 relation1 = object2[0].replace("R: ", "")
                 relation2 = object2[2].replace("R: ", "")
-                rel1 = object2[0].replace("R: ", "")+object2[1].replace("V: ", "")
-                rel2 = object2[2].replace("R: ", "")+object2[3].replace("V: ", "")
+                temp = object2[1].replace("V: ", "")
+                temp = temp.replace(" ", "")
+                rel1 = object2[0].replace("R: ", "")+temp
+                temp = object2[3].replace("V: ", "")
+                temp = temp.replace(" ", "")
+                rel2 = object2[2].replace("R: ", "")+temp
             #print(rel1, relation1)
+            satuan = getFromCode(object2, 'U: ')
+            #print("satuan", satuan)
+            #print("tujuan", units[srids[relation1+geoms[relation1]]])
             geom1 = "r" + indices[rel1] + "." + geoms[relation1]
             geom2 = "r" + indices[rel2] + "." + geoms[relation2]
             query = query + declareFunctions(op, [geom1, geom2])
-            query = query + " " + operation[1] + " " + right + " "
+            query = query + " " + operation[1] + " " + convert(int(right), satuan, units[srids[relation1+geoms[relation1]]]) + " "
+    
     elif (op=="OVERLAPS" or op=="MEETS"):
 
         geom1 = "r"
@@ -837,6 +1074,7 @@ def processCond(object1, operation, object2, query):
             rel1 = getFromCode(object1, 'R: ')
             val1 = getFromCode(object1, 'V: ')
             fld1 = getFromCode(object1, 'F: ')
+            val1Id = val1.replace(' ', '')
             geom1 = geom1 + indices[rel1+val1] + "." + geoms[rel1]
 
         if (len(object2)==0):
@@ -858,21 +1096,24 @@ def processCond(object1, operation, object2, query):
             rel2 = getFromCode(object2, 'R: ')
             fld2 = getFromCode(object2, 'F: ')
             val2 = getFromCode(object2, 'V: ')
+            val2Id = val2.replace(' ', '')
             geom2 = geom2 + indices[rel2+val2] + "." + geoms[rel2]
 
         query = query + declareFunctions(op, [geom1, geom2]) + " "
         # mungkin saja penambahannya duplikat. Tangani itu!!!!
         if (fld1=="" and val1!=""):
             query = query + "AND "
-            query = searchValQuery(query, rel1, val1) + " "
+            query = query + "lower(r" + indices[rel1+val1Id] + "." + getDefaultAttr(rel1) + ") = '" + val1 + "'"
+            #query = searchValQuery(query, rel1, val1) + " "
         elif (fld1!="" and val1!=""):
-            query = query + "AND r" + indices[rel1+val1] + "." + fld1 + " = " + val1
+            query = query + "AND lower(r" + indices[rel1+val1Id] + "." + fld1 + ") = '" + val1 + "'"
 
         if (fld2=="" and val2!=""):
             query = query + "AND "
-            query = searchValQuery(query, rel2, val2) + " "
+            query = query + "lower(r" + indices[rel2+val2Id] + "." + getDefaultAttr(rel2) + ") = '" + val2 + "'"
+            #query = searchValQuery(query, rel2, val2) + " "
         elif (fld2!="" and val2!=""):
-            query = query + "AND r" + indices[rel2+val2] + "." + fld2 + " = " + val2
+            query = query + "AND r" + indices[rel2+val2Id] + "." + fld2 + " = '" + val2 + "'"
 
 
     elif (op=="LUAS" or op=="KELILING" or op=="PANJANG"):
@@ -887,24 +1128,27 @@ def processCond(object1, operation, object2, query):
             field = getFromCode(object1, 'F: ')
             relation = getFromCode(object1, 'R: ')
             value = getFromCode(object1, 'V: ')
+            valueId = value.replace(' ', '') 
 
             if (field==""):
                 if (op==""):
                     if (value!=""):
-                        query = searchValQuery(query, relation, value) + " "
+                        #query = searchValQuery(query, relation, value) + " "
+                        query = query + "lower(r" + indices[relation+valueId] + "." + getDefaultAttr(relation) + ") = '" + value + "' "
                     else:
-                        query = searchValQuery(query, relation, object1[len(object1)-1]) + " "
+                        query = query + "lower(r" + indices[relation+object1[len(object1)-1]] + "." + getDefaultAttr(relation) + ") = '" + object1[len(object1)-1] + "' "
+                        #query = searchValQuery(query, relation, object1[len(object1)-1]) + " "
                 #else:
                 #    query = query + "r" + indices[result["relation"][0]] + "." + left + " " + op + " " + right + " "
             else:
                 if (op==""):
                     if (value!=""):
-                        query = query + "r" + indices[relation+value] + "." + field + " = " + value + " "
+                        query = query + "lower(r" + indices[relation+valueId] + "." + field + ") = '" + value + "' "
                     else:
                         num = object1[len(object1)-1]
                         query = query + "r" + indices[relation+field+num] + "." + field + " = " + num + " "
                 else:
-                    query = query + "r" + indices[relation+value] + "." + field + " " + op + " " + right + " "
+                    query = query + "r" + indices[relation+valueId] + "." + field + " " + op + " " + right + " "
         #query = query + "r" + indices[result["relation"][0]] + "." + left + " " + op + " " + right + " "
 
     return query
@@ -916,8 +1160,9 @@ wherecond = []
 indices = {}
 result = {"cond": [], "relation": [], "fields": []}
 
-print("translating the sentence to SQL...")
+print("\nmenerjemahkan kalimat menjadi SQL...")
 result = recursiveWalk(sentence[0], result)
+#print(result)
 
 counter = 1
 for i in range(0, len(result["relation"])):
@@ -925,9 +1170,12 @@ for i in range(0, len(result["relation"])):
         if (i+1!=len(result["relation"])):
             if (result["relation"][i+1].startswith('V:')):
                 temp = result["relation"][i+1].replace('V: ', '')
+                temp = temp.replace(' ', '')
+                #print("temp", temp)
                 indices[result["relation"][i]+temp] = str(counter)
             elif (result["relation"][i+1].startswith('F:')):
                 field = result["relation"][i+1].replace('F: ', '')
+                field = field.replace(' ', '')
                 val = result["relation"][i+2].replace('N: ', '')
                 indices[result["relation"][i]+field+val] = str(counter)
             else:
@@ -936,10 +1184,10 @@ for i in range(0, len(result["relation"])):
             indices[result["relation"][i]] = str(counter)
         counter = counter + 1
 
-print("indices", indices)
+#print("indices", indices)
 
 isFunction = False
-print(result)
+whereAppend = ""
 query = "SELECT DISTINCT "
 index = 1
 # Sementara cuma query berupa tampilkan clipping dengan tidak ada atribut lain
@@ -955,7 +1203,7 @@ if (isPart):
     rel = getFromCode(result["fields"][idx:], 'R: ')
     val = getFromCode(result["fields"][idx:], 'V: ')
     if (rel==""):
-        print("elmt right")
+        #print("elmt right")
         geom2 = makeRectangle(result["fields"][idx+2:])
         '''for elmt in result["fields"][idx+1:]:
             makeRectangle(result["fields"][:])
@@ -977,23 +1225,46 @@ if (isPart):
     elif (fld2!="" and val2!=""):
         query = query + "AND r" + indices[rel2+val2] + "." + fld2 + " = " + val2'''
 
+# Perhatikan! Ini metode ketemu paling akhir
 elif (len(result["fields"])>0):
+    isAgg = False
+    #aggVal = None
     for elem in result["fields"]:
-        if (not elem.startswith("V: ") and not elem.startswith("R: ") and not elem.startswith("G: ") and not elem.startswith("O: ")):
+        if (not elem.startswith("V: ") and not elem.startswith("R: ") and not elem.startswith("G: ") and not elem.startswith("O: ") and not elem.startswith("A: ")):
             #print("fields")
             #print(result["fields"][index:])
-            query = query + "r" + indices[extractFirstRelation(result["fields"][index:])] + "." + getSynonym(elem) + ", "
+            rel, val = extractFirstRelation(result["fields"][index:])
+            if (not elem in attrs[rel]):
+                for connect in getConnection(rel):
+                    if (elem in attrs[connect]):
+                        rel = connect
+                        val = ""
+                        whereAppend = "r" + indices[rel+val] + "." 
+            query = query + "r" + indices[rel+val] + "." + getSynonym(elem)
+            if (isAgg):
+                query = query + "), "
+                isAgg = False
+            else:
+                query = query + ", "
         elif (elem.startswith("G: ")):
             if (not isFunction):
                 elem = elem.replace("G: ", "")
                 founds = re.findall("\w+", elem)
-                if (len(founds)==2):
-                    print(founds[0])
-                    print(founds[1])
-                    print("indices", indices)
-                    query = query + "r" + indices[founds[0]+founds[1]] + "." + geoms[founds[0]] + ", "
+                if (len(founds)>=2):
+                    #print(founds[0])
+                    #print(founds[1])
+                    #print("indices", indices)
+                    val = ""
+                    for i in range(1, len(founds)):
+                        val = val + founds[i]
+                    query = query + "r" + indices[founds[0]+val] + "." + geoms[founds[0]] + ", "
                 else:
                     query = query + "r" + indices[founds[0]] + "." + geoms[founds[0]] + ", "
+        elif (elem.startswith("A: ")):
+            elem = elem.replace("A: ", "")
+            isAgg = True
+            #aggVal = elem
+            query = query + declareAgg(elem) + "("
         elif (elem.startswith("O: ")):
             elem = elem.replace("O: ", "")
             if (parameter[elem]==2):
@@ -1006,7 +1277,21 @@ elif (len(result["fields"])>0):
                 elem3 = result["fields"][index+1]
                 elem3 = elem3.replace("G: ", "")
                 founds3 = re.findall("\w+", elem3)
-                query = query + declareFunctions(elem, ["r"+indices[founds2[0]+founds2[1]]+"."+geoms[founds2[0]], "r"+indices[founds3[0]+founds3[1]]+"."+geoms[founds3[0]]]) + ", "
+
+                val2 = ""
+                for i in range(1, len(founds2)):
+                    val2 = val2 + founds2[i]
+                
+                val3 = ""                
+                for i in range(1, len(founds3)):
+                    val3 = val3 + founds3[i]
+                
+                query = query + declareFunctions(elem, ["r"+indices[founds2[0]+val2]+"."+geoms[founds2[0]], "r"+indices[founds3[0]+val3]+"."+geoms[founds3[0]]])
+                if (isAgg):
+                    query = query + "), "
+                    isAgg = False
+                else:
+                    query = query + ", "
             else:
                 i = index
                 while (result["fields"][i].startswith('O:')):
@@ -1014,7 +1299,16 @@ elif (len(result["fields"])>0):
                 elem2 = result["fields"][i]
                 elem2 = elem2.replace("G: ", "")
                 founds2 = re.findall("\w+", elem2)
-                query = query + declareFunctions(elem, ["r"+indices[founds2[0]+founds2[1]]+"."+geoms[founds2[0]]]) + ", "
+                rel = founds2[0]
+                val = ""
+                for i in range(1, len(founds2)):
+                    val = val + founds2[i]
+                query = query + declareFunctions(elem, ["r"+indices[rel+val]+"."+geoms[rel]])
+                if (isAgg):
+                    query = query + "), "
+                    isAgg = False
+                else:
+                    query = query + ", "
             isFunction = True
 
         index = index + 1
@@ -1050,6 +1344,7 @@ for i in range(0, len(result["relation"])): #relation in result["relation"]:
         if (i+1 < len(result["relation"])):
             if (result["relation"][i+1].startswith('V:')):
                 temp = result["relation"][i+1].replace('V: ','')
+                temp = temp.replace(' ', '')
                 query = query + result["relation"][i] + " r" + indices[result["relation"][i]+temp] + ", "
             elif (result["relation"][i+1].startswith('F:')):
                 temp = result["relation"][i+1].replace('F: ','')
@@ -1095,10 +1390,24 @@ if (len(result["cond"])>0):
 else:
     print(query)
 
-'''print("querying to the DB...")
-conn = psycopg2.connect(host="localhost", database="sample", user="postgres", password="1234")
+print("\nmemproses hasil query SQL...")
+import pandas as pd
+
+conn = psycopg2.connect(host="localhost", database=database_name, user="postgres", password="1234")
 cur = conn.cursor()
 cur.execute(query)
 hasil = cur.fetchall()
-print(hasil)
-cur.close()'''
+#print(hasil)
+cur.close()
+
+temp = []
+counter = 0
+for val in hasil:
+    if (counter > 5):
+        temp.append('...')
+        break
+    if (val[0]!=None):
+        temp.append(val[0])
+        counter = counter + 1
+
+print(pd.DataFrame({'hasil': temp}))

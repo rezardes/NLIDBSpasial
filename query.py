@@ -4,7 +4,7 @@ import psycopg2
 # q_2: query tabel
 # q_3: query semua kolom
 
-q_1 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\' AND data_type LIKE \'character%\''
+q_1 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\' AND data_type LIKE \'char%\' OR data_type LIKE \'text%\''
 q_2 = 'SELECT table_name FROM information_schema.tables WHERE table_schema = \'public\''
 q_3 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\''
 q_4 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\' AND data_type = \'USER-DEFINED\''
@@ -68,15 +68,15 @@ def getGeoms(conn, relations):
 
     return result
 
-conn = psycopg2.connect(host="localhost", database="sample", user="postgres", password="1234")
-#relations = getRelations(conn)
+conn = psycopg2.connect(host="localhost", database="geometry", user="postgres", password="1234")
+relations = getRelations(conn)
 #print(relations)
 #fields, result  = getColumns(conn, relations)
 #print(fields)
 #print(result)
-#print(getValues(conn, relations))
-cur = conn.cursor()
-cur.execute("SELECT r1.id FROM restoran r1, restoran r2 WHERE ST_Distance(r1.geom, r2.geom) < 500 and r2.id = 1")
-hasil = cur.fetchall()
-print(hasil)
-cur.close()
+print(getValues(conn, relations))
+#cur = conn.cursor()
+#cur.execute("SELECT r1.id FROM restoran r1, restoran r2 WHERE ST_Distance(r1.geom, r2.geom) < 500 and r2.id = 1")
+#hasil = cur.fetchall()
+#print(hasil)
+#cur.close()
