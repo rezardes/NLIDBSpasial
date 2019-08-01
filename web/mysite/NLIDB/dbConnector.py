@@ -1,9 +1,5 @@
 import psycopg2
 
-# q_1: query kolom string
-# q_2: query tabel
-# q_3: query semua kolom
-
 q_1 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\' AND (data_type LIKE \'char%\' OR data_type LIKE \'text%\')'
 q_2 = 'SELECT table_name FROM information_schema.tables WHERE table_schema = \'public\' AND table_name <> \'geography_columns\' AND table_name <> \'geometry_columns\' AND table_name <> \'spatial_ref_sys\' AND table_name <> \'raster_columns\' AND table_name <> \'raster_overviews\''
 q_3 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\''
@@ -24,14 +20,6 @@ FROM
       AND ccu.table_schema = tc.table_schema
 WHERE tc.constraint_type = \'FOREIGN KEY\';'''
 q_7 = 'SELECT DISTINCT ST_GeometryType({}) FROM {}'
-
-# connection
-# 0: RELATION
-# 1: FIELD
-
-# geoms
-# 0: FIELD
-# 1: TYPE
 
 def getRelations(conn):
 
@@ -118,10 +106,18 @@ def getConnection(conn, relations):
 
     return connection
 
+def test():
+    print('hello')
+
+'''
 conn = psycopg2.connect(host="localhost", database="sample2", user="postgres", password="1234")
 relations = getRelations(conn)
 fields, result  = getColumns(conn, relations)
+#print(fields)
+#print(result)
 
+#print(result)
+#print(getValues(conn, relations))
 '''cur = conn.cursor()
 cur.execute(q_6)
 hasil = cur.fetchall()
@@ -136,3 +132,4 @@ print(connection)
 
 semantics = {}
 semantics["wifijangkauan"] = "jari-jari lingkaran"
+'''

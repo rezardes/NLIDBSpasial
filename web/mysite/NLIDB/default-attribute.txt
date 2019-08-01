@@ -1,0 +1,2 @@
+area  : nama
+wifi : nama

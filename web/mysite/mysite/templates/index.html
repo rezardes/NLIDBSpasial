@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script>
+    $(document).ready(function(){
+
+        database = localStorage.getItem("database")
+        if (database) {
+            $("#databaseName").text(database)
+        }
+
+        $("#submitQuery").click(function(){
+            database = $('#dbInput').val()
+            isLoad = "True"
+            if (database) {
+                localStorage.setItem("database", database) 
+            } else {
+                database = localStorage.getItem("database")
+                //alert(database)
+                isLoad = ""
+            }
+            
+            query = $('textarea').val()
+            if (query) {
+                alert(isLoad)
+                $.ajax({
+                    type: "POST",
+                    url: "http://127.0.0.1:8000/parse",
+                    data: {
+                        query: query,
+                        database: database,
+                        isLoad: isLoad,
+                    },
+                }).done(function(data) {
+                    
+
+                    var p1 = new Promise(
+                        // The resolver function is called with the ability to resolve or
+                        // reject the promise
+                        function(resolve, reject) {
+                            //sessionStorage.setItem("geomdata", JSON.stringify(data));
+                            localStorage.setItem('geomdata', JSON.stringify(data))
+                            console.log(data)
+                            resolve('success')
+                        }
+                    );
+
+                    p1.then(function(value) {
+                        console.log(value); // Success!
+                        window.location.href = "http://localhost:8000/viewer"
+                      }, function(reason) {
+                        console.log(reason); // Error!
+                      });
+                })
+            }
+        });
+    });
+</script>
+</head>
+<body>
+
+<p>Basis Data Sekarang: <span id="databaseName"></span> </p>
+<p>Input Basis Data:</p>
+<input type="text" name="dbInput" id="dbInput">
+<p>Input Query:</p>
+<textarea rows="4" cols="50">
+</textarea> <br>
+<button id="submitQuery" type="button">Submit</button> 
+
+</body>
+</html> 

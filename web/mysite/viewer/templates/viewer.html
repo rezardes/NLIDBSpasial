@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"
+integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+crossorigin=""/>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<title>Page Title</title>
+<style>
+    #map { height: 180px; }
+</style>
+</head>
+<body>
+<div id="result"></div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js"
+integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og=="
+crossorigin=""></script>
+<script>
+
+        console.log('Success2')
+        //data = sessionStorage.getItem('geomdata')
+        data = localStorage.getItem('geomdata')
+        console.log(data)
+        data = JSON.parse(data)
+        console.log(data)
+
+        if (data['data'][0]['type']=='text') {
+            
+            $(document).ready(function(){
+                for (elmt of data['data']) {
+                    $( "#result" ).append( "<p>" );
+                    for (text of elmt['text']) {
+                        $( "#result" ).append( text+"&nbsp;"+"&nbsp;"+"&nbsp;" );
+                    }
+                    $( "#result" ).append( "</p>" );
+                }
+            });
+            
+            
+        } else {
+
+            var map = L.map('map').setView([-6.88461632,107.61314929], 20)
+            var countRad = 0
+            for (elmt of data['data']) {
+
+                for (i = 0; i < elmt['type'].length; i++) {
+                    var latlngs = elmt['coordinates'][i]
+                    if (elmt['type'][i]=="Polygon") {
+                        var polygon = L.polygon(latlngs, {color: 'red'}).addTo(map);
+                    } else if (elmt['type'][i]=="circle") {
+                        L.circle(latlngs, {radius: elmt['radius'][countRad]}).addTo(map);
+                        countRad = countRad + 1
+                    }
+                }
+
+                for (i = 0; i < elmt['text'].length; i++) {
+                    //console.log(elmt['coordinates'][0][0][0])
+                    /*L.marker(elmt['coordinates'][0][0][0]).addTo(map)
+                        .bindPopup('A pretty CSS3 popup.<br> Easily customizable.')
+                        .openPopup();
+
+                    L.marker([-6.884616,107.613149]).addTo(map)
+                        .bindPopup('A pretty CSS3.')
+                        .openPopup();*/
+                }
+                
+            }
+
+            L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map); 
+
+        }
+
+        
+
+        //var latlngs = [[[-6.88461632,107.61314929],[-6.8846536,107.61331558],[-6.88485598,107.61328876],[-6.88487196,107.61332631],[-6.8850051,107.61331558],[-6.88495717,107.61308491],[-6.88461632,107.61314929]]];
+        //var polygon = L.polygon(latlngs, {color: 'red'}).addTo(map);
+
+        // /var latlngs = [[[-6.88439797,107.61355698],[-6.88448318,107.61381984],[-6.88477609,107.61372864],[-6.88470153,107.61347115],[-6.88439797,107.61355698]]]
+        //var polygon = L.polygon(latlngs, {color: 'red'}).addTo(map);
+        //var polygon = L.polygon(latlngs, {color: 'red'}).addTo(map);
+        
+        //alert('hello');
+        
+
+        // latlngs = data['coordinates']
+
+        //var latlngs = [[[-98.9961841996954,45.0045055398407],[-99.0153989192922,44.8094152178246],[-99.0723046671842,44.6218221074757],[-99.1647145873929,44.4489353068211],[-99.2890774185089,44.2973987586542],[-99.4406139666758,44.1730359275382],[-99.6135007673304,44.0806260073295],[-99.8010938776793,44.0237202594375],[-99.9961841996954,44.0045055398407],[-100.191274521712,44.0237202594375],[-100.378867632061,44.0806260073295],[-100.551754432715,44.1730359275382],[-100.703290980882,44.2973987586542],[-100.827653811998,44.4489353068211],[-100.920063732207,44.6218221074757],[-100.976969480099,44.8094152178246],[-100.996184199695,45.0045055398407],[-100.976969480099,45.1995958618569],[-100.920063732207,45.3871889722058],[-100.827653811998,45.5600757728603],[-100.703290980882,45.7116123210273],[-100.551754432715,45.8359751521433],[-100.378867632061,45.928385072352],[-100.191274521712,45.985290820244],[-99.9961841996954,46.0045055398407],[-99.8010938776793,45.985290820244],[-99.6135007673304,45.928385072352],[-99.4406139666759,45.8359751521433],[-99.2890774185089,45.7116123210273],[-99.1647145873929,45.5600757728603],[-99.0723046671842,45.3871889722058],[-99.0153989192922,45.1995958618569],[-98.9961841996954,45.0045055398407]]];
+        //var polygon = L.polygon(latlngs, {color: 'red'}).addTo(map);
+
+        /*L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+         attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);*/
+
+        //alert(circle.getBounds());
+        // zoom ke polygon
+        //map.fitBounds(polygon.getBounds()); 
+
+       /*L.marker([-6.8941224, 107.6056536]).addTo(map)
+            .bindPopup('Upnormal Cafe.')
+            .openPopup();*/
+</script>
+
+</body>
+</html> 
