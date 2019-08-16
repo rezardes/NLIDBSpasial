@@ -4,7 +4,9 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"
 integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
 crossorigin=""/>
+<script src="https://npmcdn.com/@turf/turf/turf.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/geojson/0.5.0/geojson.js"></script>
 <title>Page Title</title>
 <style>
     #map { height: 180px; }
@@ -18,15 +20,12 @@ integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqD
 crossorigin=""></script>
 <script>
 
-        console.log('Success2')
-        //data = sessionStorage.getItem('geomdata')
         data = localStorage.getItem('geomdata')
-        console.log(data)
         data = JSON.parse(data)
-        console.log(data)
+        alert(JSON.stringify(data))
 
         if (data['data'][0]['type']=='text') {
-            
+            alert("tes")
             $(document).ready(function(){
                 for (elmt of data['data']) {
                     $( "#result" ).append( "<p>" );
@@ -41,16 +40,28 @@ crossorigin=""></script>
         } else {
 
             var map = L.map('map').setView([-6.88461632,107.61314929], 20)
-            var countRad = 0
+            var isRadCircle = false
+            var isPointCircle = false
+            var radCircle = 0
+            var pointCircle = []
             for (elmt of data['data']) {
 
                 for (i = 0; i < elmt['type'].length; i++) {
                     var latlngs = elmt['coordinates'][i]
                     if (elmt['type'][i]=="Polygon") {
                         var polygon = L.polygon(latlngs, {color: 'red'}).addTo(map);
-                    } else if (elmt['type'][i]=="circle") {
-                        L.circle(latlngs, {radius: elmt['radius'][countRad]}).addTo(map);
-                        countRad = countRad + 1
+                    } else if (elmt['type'][i]=="radCircle") {
+                        isRadCircle = true
+                        radCircle = elmt['value'][i]
+                    } else if (elmt['type'][i]=="pointCircle") {
+                        pointCircle = elmt['coordinates'][i]
+                        isPointCircle = true
+                    }
+
+                    if (isRadCircle && isPointCircle) {
+                        isPointCircle = false
+                        isRadCircle = false
+                        L.circle(pointCircle, {radius: radCircle}).addTo(map);
                     }
                 }
 
@@ -73,6 +84,29 @@ crossorigin=""></script>
 
         }
 
+        /*var center = [-75.343, 39.984];
+        var radius = 10;
+        var options = {steps: 10, units: 'meters', properties: {foo: 'bar'}};
+        var circle = turf.circle(center, radius, options);*/
+
+        /*var point = turf.point([-90.548630, 14.616599]);
+        var circle = turf.buffer(point, 0.00005, {units: 'degrees'});*/
+        //console.log(point.getGeometry().transform('EPSG:4326', 'EPSG:3857'));
+        //console.log(point);
+
+        //var format = new GeoJSON();
+        //console.log(format)
+        //var marker = format.readFeature(point);
+        //console.log(marker.getGeometry().transform('EPSG:4326', 'EPSG:3857'));
+
+        //var latlngs = point["geometry"]["coordinates"];
+        //console.log(latlngs)
+        //var latlngs = [[[8.02635751861205,90.718808830798],[5.98399648294529,90.0824818660571],[3.44709977456866,90.1198683185766],[0.513158743793037,90.8295311927881],[-2.7050769444445,92.1841983777677],[-6.083932220899,94.1318107242801],[-9.49355937815152,96.5975226609287],[-12.8029280766641,99.4865784443829],[-15.884860818928,102.687953559711],[-18.6209203467567,106.078621271958],[-20.9059611610074,109.528280421704],[-22.6521702677114,112.904362808904],[-23.792441778752,116.077127639784],[-24.2829557777134,118.924647389558],[-24.1048622807472,121.33749339275],[-23.2650055976126,123.222941143549],[-21.7956612724494,124.508533674467],[-19.7532956892652,125.144866061571],[-17.2163960776152,125.107484108284],[-14.2824542254256,124.39782411755],[-11.0642199250944,123.043157768361],[-7.68536803484798,121.095544077535],[-4.27574574659733,118.629828824602],[-0.966382657775377,115.740768255526],[2.11554459234506,112.53938761155],[4.85159957265629,109.148714476939],[7.13663748504988,105.699050827962],[8.88284577033997,102.322965554451],[10.0231186692868,99.1501998906133],[10.5136360530401,96.3026814851537],[10.3355474250758,93.8898387968286],[9.49569635021557,92.0043958316515],[8.02635751861205,90.718808830798]]];
+        //var map = L.map('map').setView([-6.8845352, 107.6135695], 20, {crs: L.CRS.EPSG4326})
+        //var polygon = L.polygon([-90.548630, 14.616599], {color: 'red'}).addTo(map);
+        /*L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);*/
         
 
         //var latlngs = [[[-6.88461632,107.61314929],[-6.8846536,107.61331558],[-6.88485598,107.61328876],[-6.88487196,107.61332631],[-6.8850051,107.61331558],[-6.88495717,107.61308491],[-6.88461632,107.61314929]]];

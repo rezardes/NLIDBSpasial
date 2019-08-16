@@ -24,10 +24,10 @@
             
             query = $('textarea').val()
             if (query) {
-                alert(isLoad)
+                alert("Processing query...")
                 $.ajax({
                     type: "POST",
-                    url: "http://127.0.0.1:8000/parse",
+                    url: "http://localhost:8000/parse",
                     data: {
                         query: query,
                         database: database,

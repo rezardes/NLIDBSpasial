@@ -81,11 +81,13 @@ def getValues(conn, relations):
 def getGeoms(conn, relations):
 
     result = {}
+    geoColumns = []
     for table in relations:
         cur = conn.cursor()
         cur.execute(q_4.format(table))
         result[table] = cur.fetchall()
         for i in range(0, len(result[table])):
+            geoColumns.append(result[table][i][0])
             cur2 = conn.cursor()
             cur2.execute(q_7.format(result[table][i][0], table))
             tipe = cur2.fetchall()
@@ -104,7 +106,7 @@ def getGeoms(conn, relations):
             result[table].append(srid)
         cur.close()
 
-    return result
+    return result, geoColumns
 
 def getConnection(conn, relations):
 
@@ -163,12 +165,12 @@ def getMetadata(database, isLoad):
         connection = getConnection(conn, relations)
         connection = getConnection(conn, relations)
         values, manyValues = getValues(conn, relations)
-        geoms = getGeoms(conn, relations)
+        geoms, geoColumns = getGeoms(conn, relations)
 
         filename = 'metadata'
         outfile = open(filename,'wb')
 
-        metadata = { 'values': values, 'manyValues': manyValues, 'connection': connection, 'fields': fields, 'attrs': attrs, 'relations': relations, 'geoms': geoms }
+        metadata = { 'values': values, 'geoColumns': geoColumns, 'manyValues': manyValues, 'connection': connection, 'fields': fields, 'attrs': attrs, 'relations': relations, 'geoms': geoms }
         #print(metadata)
 
         pickle.dump(metadata, outfile)
@@ -193,7 +195,7 @@ def getMetadata(database, isLoad):
 
 
 metadata, synSet = getMetadata('sample2', True)
-print(metadata['connection'])
+#print(metadata['connection'])
 '''
 conn = psycopg2.connect(host="localhost", database="sample2", user="postgres", password="1234")
 relations = getRelations(conn)

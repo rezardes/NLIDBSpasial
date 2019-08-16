@@ -1,0 +1,195 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 11.0
+-- Dumped by pg_dump version 11.0
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: postgis; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION postgis IS 'PostGIS geometry, geography, and raster spatial types and functions';
+
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: area; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.area (
+    id integer NOT NULL,
+    nama character varying,
+    kelurahan character varying,
+    kecamatan character varying,
+    geom public.geometry(Polygon,4326)
+);
+
+
+ALTER TABLE public.area OWNER TO postgres;
+
+--
+-- Name: posisi; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.posisi (
+    id integer NOT NULL,
+    kelurahan character varying,
+    kecamatan character varying,
+    posisi public.geometry(Point,4326)
+);
+
+
+ALTER TABLE public.posisi OWNER TO postgres;
+
+--
+-- Name: posisi_wifi; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.posisi_wifi (
+    id integer NOT NULL,
+    id_wifi integer,
+    waktu time(6) without time zone,
+    id_posisi integer
+);
+
+
+ALTER TABLE public.posisi_wifi OWNER TO postgres;
+
+--
+-- Name: wifi; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.wifi (
+    id integer NOT NULL,
+    nama character varying,
+    warna character varying,
+    jangkauan real
+);
+
+
+ALTER TABLE public.wifi OWNER TO postgres;
+
+--
+-- Data for Name: area; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.area (id, nama, kelurahan, kecamatan, geom) FROM stdin;
+1	Yagami Ramen	Dago	Coblong	0103000020E61000000100000005000000F631179F9F891BC048D57E8444E75A402CD96FF5B5891BC0E79B02D348E75A40BD544BBE028A1BC0CA5A7D5447E75A40DF48A832EF891BC087927F1C43E75A40F631179F9F891BC048D57E8444E75A40
+3	Mall Metropolitan	Margajaya	Bekasi Selatan	0103000020E610000001000000050000002DD967846DFE18C05EFBFA0859BF5A4002EF891AF1FD18C08DF1FECB77BF5A40ED052CDA98FE18C052307CA776BF5A40D66BDD7A0BFF18C0C200FC325CBF5A402DD967846DFE18C05EFBFA0859BF5A40
+2	Dago Butik	Dago	Coblong	0103000020E61000000100000007000000A9A14FDCD8891BC0660785D63DE75A40982721A2E2891BC08C8EFD8F40E75A4083149FAF178A1BC015CD7F1F40E75A40C26305E01B8A1BC07DCEFEBC40E75A403F2CE5C63E8A1BC08C8EFD8F40E75A40F80A5E36328A1BC0C0877DC83CE75A40A9A14FDCD8891BC0660785D63DE75A40
+\.
+
+
+--
+-- Data for Name: posisi; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.posisi (id, kelurahan, kecamatan, posisi) FROM stdin;
+2	Margajaya	Bekasi Selatan	0101000020E6100000B9BDACA2A2FE18C025C7843561BF5A40
+3	Margajaya	Bekasi Selatan	0101000020E61000004625B71E6CFE18C0BFDF81646EBF5A40
+1	Dago	Coblong	0101000020E6100000D77687D2E6891BC0CD1783A046E75A40
+4	Dago	Coblong	0101000020E6100000BECAB127478A1BC03519023E47E75A40
+\.
+
+
+--
+-- Data for Name: posisi_wifi; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.posisi_wifi (id, id_wifi, waktu, id_posisi) FROM stdin;
+1	1	13:00:00	1
+\.
+
+
+--
+-- Data for Name: spatial_ref_sys; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.spatial_ref_sys (srid, auth_name, auth_srid, srtext, proj4text) FROM stdin;
+\.
+
+
+--
+-- Data for Name: wifi; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.wifi (id, nama, warna, jangkauan) FROM stdin;
+1	Mifi M5	coklat	15
+2	XL Go Izi	hitam	100
+3	Huawei e5577	hitam	10
+\.
+
+
+--
+-- Name: area area_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.area
+    ADD CONSTRAINT area_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: posisi_wifi posisi_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.posisi_wifi
+    ADD CONSTRAINT posisi_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: posisi posisi_pkey1; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.posisi
+    ADD CONSTRAINT posisi_pkey1 PRIMARY KEY (id);
+
+
+--
+-- Name: wifi robot_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.wifi
+    ADD CONSTRAINT robot_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: posisi_wifi fk_id_wifi; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.posisi_wifi
+    ADD CONSTRAINT fk_id_wifi FOREIGN KEY (id_wifi) REFERENCES public.wifi(id);
+
+
+--
+-- Name: posisi_wifi fk_posisi_wifi; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.posisi_wifi
+    ADD CONSTRAINT fk_posisi_wifi FOREIGN KEY (id_posisi) REFERENCES public.posisi(id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+

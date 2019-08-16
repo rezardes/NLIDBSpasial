@@ -22,5 +22,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('viewer/', include('viewer.urls')),
     path('parse', main.parse, name='parsing'),
+    path('test', main.test, name='test'),
     path('', main.index, name='index'),
 ]

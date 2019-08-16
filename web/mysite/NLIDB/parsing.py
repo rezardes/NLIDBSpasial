@@ -3,7 +3,10 @@ import re
 import nltk
 from nltk.grammar import Nonterminal, Production, CFG
 
-#from NLIDB.connector import metadata
+import sys
+sys.path.insert(0, "D:\\My Documents\\Kuliah\\Tugas Akhir\\Experiment\\NLIDBSpasial\\web\\mysite")
+
+from NLIDB.connector import metadata
 
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
@@ -69,7 +72,7 @@ def preprocessing(sentence):
 
     extractor = re.compile(r'(\d+[\.|\:]\d+)')
     timeList = extractor.findall(sentence)
-    print("timeList", timeList)
+    #print("timeList", timeList)
     for keep in timeList:
         sentence = sentence.replace(keep, 'time')
 
@@ -81,6 +84,8 @@ def preprocessing(sentence):
     sentence = sentence.replace('.', 'aziz')
     sentence = sentence.replace('bersebelahan', 'belah')
     sentence = sentence.replace('lingkaran', 'lingkaranxyz')
+    sentence = sentence.replace('satuan', 'satuanxyz')
+    sentence = sentence.replace('bagian', 'bagianxyz')
 
     # Proses stemming
     factory = StemmerFactory()
@@ -113,6 +118,8 @@ def preprocessing(sentence):
     output = output.replace('jangkauanabc', 'jangkauan')
     output = output.replace('aziz', '.')
     output = output.replace('lingkaranxyz', 'lingkaran')
+    output = output.replace('satuanxyz', 'satuan')
+    output = output.replace('bagianxyz', 'bagian')
     #print("Hasil remove: "+output)
 
     return output
@@ -191,7 +198,7 @@ def parse(sentence, metadata):
     LUAS -> 'luas'
     KELILING -> 'keliling'
     OVERLAPS -> 'iris' | 'singgung'
-    OVERLAP -> 'irisan'
+    OVERLAP -> 'irisan' | 'kena'
     MEETS -> 'di' 'samping' | 'belah'
     WITHIN -> 'jangkau'
     PART -> 'bagian' | 'daerah'
@@ -200,9 +207,11 @@ def parse(sentence, metadata):
 
     # Node Satuan
     temp = """
+    UNITDESC -> 'dalam' 'satuan' | 'dalam'
     KM -> 'kilometer' | 'km'
     M -> 'meter' | 'm'
     MIL -> 'mil'
+    M2 -> 'meter' 'persegi'
     """
     nodes = nodes + temp
 
@@ -231,33 +240,36 @@ def parse(sentence, metadata):
     S -> WORDS
     WORDS -> WORD WORDS | WORD  
     WORD -> SIDE | LENGTH | WIDTH | LU | RB | PUSAT | SQUARE | RECTANGLE | COMMAND
-    WORD -> MIL | M | KM | LESS | MORE | EQUAL | NOT | AND | OR | SEPARATOR | COMMA
+    WORD -> MIL | M | KM | M2 | LESS | MORE | EQUAL | NOT | AND | OR | SEPARATOR | COMMA
     WORD -> ABSIS | ORDINAT | KOORDINAT | JARAK | IN | WITHIN | OUTSIDE | PANJANG | LUAS
     WORD -> KELILING | OVERLAP | OVERLAPS | MEETS | FIELD | RELATION | VALUE | NUMBER
-    WORD -> TIME | COOR | COUNT | MAX | MIN | SUM | PART | REMOVES
+    WORD -> TIME | COOR | COUNT | MAX | MIN | SUM | PART | UNITDESC | REMOVES
     """
 
     print("\nPreprocessing kalimat...")
     sentence = preprocessing(sentence)
-    #print("preprocessing", sentence)
+    print("preprocessing", sentence)
 
-    removes = set([match.group(0) for match in re.finditer(r"\w+", sentence)])
+    removes = set([match.group(0) for match in re.finditer(r"\w+\.|\w+", sentence)])
     #print(removes)
 
     # Penanganan Multi Value termasuk Value
     # Sebaiknya dimasukkan pada penanganan CFG ERROR
     # Tambahkan penanganan kata yang berperan sebagai value dan bukan value
     # Mungkin gunakan cara sentencenya katanya dihapus terus dimunculin lagi
-    words = re.finditer(r"\w+", sentence)
+    words = re.finditer(r"\w+\.|\w+", sentence)
     wordList = []
     for word in words:
         wordList.append(word.group(0))
     #print(wordList)
 
+    #print("wordList", wordList)
+    #print("manyValues", manyValues)
     for val in manyValues:
         if (sentence.find(val)!=-1):
             #print(val)
             splitter = val.split(' ')
+            #print("splitter ", splitter)
             #found = False
             #for split in splitter:
             #    if (not split in removes):
@@ -298,8 +310,8 @@ def parse(sentence, metadata):
     # Load grammar into a parser
     lgrammar, lproductions = addSuffixGrammar(grammar)
     parser = nltk.RecursiveDescentParser(lgrammar)
-
     tokens = sentence.split()
+    #print("tokens", tokens)
     print("Menguraikan kalimat...")
     parse_tree = None
     try:
@@ -314,6 +326,8 @@ def parse(sentence, metadata):
         for t in parser.parse(tokens):
             parse_tree = t
             break
+
+    #print("tree", parse_tree)
 
     if (parse_tree==None):
         #print("tes")
@@ -334,19 +348,22 @@ def parse(sentence, metadata):
     sentence = remove(sentence, removeList)
     print("Kalimat hasil preprocessing", sentence)
 
+    # SPATIALOP FIELDS
+    # QUERIES -> QUERY COMMA QUERIES | QUERY CONJ QUERIES | QUERY
+
     rule = """
-    S -> QUERIES
-    QUERIES -> QUERY COMMA QUERIES | QUERY CONJ QUERIES | QUERY
+    S -> QUERY
     QUERY -> COMMAND CONDITION | COMMAND VALUE
-    FIELDS -> FIELD | SPATIALOP FIELDS | FIELD FIELDS | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS
+    FIELDS -> FIELD | FIELD FIELDS | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS
     VALUES -> VALUE CONJ VALUE | VALUE COMMA VALUE | VALUE VALUES | VALUE
-    CONDITION -> OVERLAP FIELD RELATION VALUE FIELD RELATION VALUE | AGGREGATE CONDITION | COND CONJ CONDITION | COND COMMA CONDITION | COND COMMA CONJ CONDITION | COND CONDITION | RELATION SEPARATOR CONDITION | FIELD SEPARATOR CONDITION | COND SEPARATOR CONDITION | SPATIALOP OPERATOR | SPATIALOP COND OPERATOR | COND SPATIALOP OPERATOR | SPATIALOP GEOCONDS | SPATIALOP COND COND | SPATIALOP COND CONJ COND | NOT SPATIALOP COND COND | SPATIALOP COND OPERATOR | SPATIALOP COND COND OPERATOR | SPATIALOP COND | NOT SPATIALOP COND | SPATIALOP VALUES | SPATIALOP VALUES CONDITION | SPATIALOPS CONDITION | COND
+    CONDITION -> OVERLAP FIELD RELATION VALUE FIELD RELATION VALUE | AGGREGATE CONDITION | COND CONJ CONDITION | COND COMMA CONDITION | COND COMMA CONJ CONDITION | COND CONDITION | RELATION SEPARATOR CONDITION | FIELD SEPARATOR CONDITION | COND SEPARATOR CONDITION | SPATIALOP OPERATOR | SPATIALOP COND OPERATOR | COND SPATIALOP OPERATOR | SPATIALOP GEOCONDS | SPATIALOP COND COND | SPATIALOP COND CONJ COND | NOT SPATIALOP COND COND | SPATIALOP COND OPERATOR | SPATIALOP COND COND OPERATOR | SPATIALOP COND | NOT SPATIALOP COND | SPATIALOP VALUES | SPATIALOP VALUES CONDITION | SPATIALOPS CONDITION | COND | UNITCOND
     GEOCONDS -> GEOCOND COMMA GEOCONDS | GEOCOND CONJ COMMA GEOCOND | GEOCOND
     GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER | POINT COOR OPERATOR
     COND -> PART RELATION | PART IN RELATION | PART RELATION VALUE | PART FIELD RELATION VALUE | PART IN RELATION VALUE | PART IN FIELD RELATION VALUE | PART RELATION FIELD VALUE | PART IN RELATION FIELD VALUE | NOT FIELD VALUE | FIELDS RELATION | FIELDS OPERATOR | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | FIELDS VALUE | FIELDS TIME | RELATION FIELDS VALUE | FIELDS NOT VALUE | FIELDS NOT TIME | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | RELATION FIELDS | RELATION VALUE | RELATION NOT VALUE | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP OPERATOR RELATION VALUE
     OPERATOR -> OP NUMBER | OP NUMBER UNIT | NUMBER | NUMBER UNIT
     OP -> LESS | MORE | EQUAL
-    UNIT -> KM | M | MIL
+    UNITCOND -> UNITDESC UNIT
+    UNIT -> KM | M | MIL | M2
     GEOMETRY -> SQUARE | RECTANGLE
     POINT -> LU | RU | LB | RB | PUSAT | 'titik'
     SIZE -> SIDE | LENGTH | WIDTH
@@ -363,13 +380,23 @@ def parse(sentence, metadata):
     lgrammar, lproductions = addSuffixGrammar(grammar)
     parser = nltk.RecursiveDescentParser(lgrammar)
 
-    for t in parser.parse(tokens):
+    '''for t in parser.parse(tokens):
         #print(t)
         parse_tree = t
-        break
+        break'''
     
     print("=====")
+    counter = 0
     for t in parser.parse(tokens):
+        if (counter==0):
+            parse_tree = t
+            counter = counter + 1
         print(t)
 
     return parse_tree
+
+#sentence = "Tunjukkan irisan jangkauan wifi Mifi M5 dan jangkauan wifi Huawei e5577 ketika jam 13:00!"
+#sentence = "Tunjukkan jarak antara wifi Mifi M5 dengan wifi Huawei e5577 ketika jam 13:00!"
+#meta = metadata
+#parser = parse(sentence, meta)
+#print(parser)
