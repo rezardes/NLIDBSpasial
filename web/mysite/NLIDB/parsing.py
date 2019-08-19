@@ -6,7 +6,7 @@ from nltk.grammar import Nonterminal, Production, CFG
 import sys
 sys.path.insert(0, "D:\\My Documents\\Kuliah\\Tugas Akhir\\Experiment\\NLIDBSpasial\\web\\mysite")
 
-from NLIDB.connector import metadata
+#from NLIDB.connector import metadata
 
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
@@ -79,6 +79,8 @@ def preprocessing(sentence):
     #print("pra-stem", sentence)
 
     sentence = sentence.replace(',', ' xyz')
+    sentence = sentence.replace('tersebut', 'tersebutxyz')
+    sentence = sentence.replace('berjarak', 'berjarakxyz')
     sentence = sentence.replace(' irisan', ' irisanabc')
     sentence = sentence.replace('jangkauan', 'jangkauanabc')
     sentence = sentence.replace('.', 'aziz')
@@ -95,6 +97,8 @@ def preprocessing(sentence):
     #removeList = ['ada', 'masing', 'tiap', 'dengan', 'besar', 'hadap', 'milik', 'antara', 'meter', 'seluruh']
     prefixList = ['ber-']
     stemList = ['beribukota', 'ibukota']
+
+    print("sentence", sentence)
 
     output = stemmer.stem(sentence)
     output = output + " "
@@ -114,6 +118,8 @@ def preprocessing(sentence):
     for i in range(0, len(stemList), 2):
         output = output.replace(stemList[i], stemList[i+1])
     output = output.replace(' xyz', ' ,')
+    output = output.replace('tersebutxyz', 'tersebut')
+    output = output.replace('berjarakxyz', 'berjarak')
     output = output.replace('irisanabc', 'irisan')
     output = output.replace('jangkauanabc', 'jangkauan')
     output = output.replace('aziz', '.')
@@ -153,12 +159,21 @@ def parse(sentence, metadata):
     global attrs
     global manyValues
 
-    relations = metadata["relations"]
+    '''relations = metadata["relations"]
     fields = metadata["fields"]
     values = metadata["values"]
     manyValues = metadata["manyValues"]
     connections = metadata["connection"]
-    attrs = metadata["attrs"]
+    attrs = metadata["attrs"]'''
+    relations = ['provinsi', 'kota', 'restoran', 'negara', 'area', 'wifi']
+    fields = ['nama', 'alamat', 'franchise', 'posisi', 'populasi']
+    values = ['bandung', 'medan', 'connex', 'indonesia']
+    manyValues = ['jawa barat', 'yagami ramen']
+    connections = {}
+    connections["|"] = []
+    attrs = {'provinsi':['nama', 'geom'], 'kota': ['nama', 'geom', 'populasi'], 'restoran': ['nama', 'geom', 'franchise'], 'posisi': ['posisi'], 'negara': ['nama', 'populasi'], 'wifi': ['nama', 'jangkauan'], 'area': ['nama', 'geom']}
+    geoms = {'provinsi': ['geom', '4326', 'poligon'], 'negara': ['geom', '4326', 'poligon'], 'kota': ['geom', '4326', 'point'], 'restoran': ['geom', '4326', 'point'], 'posisi':['posisi', '4326', 'point'],  'area': ['geom', '4326', 'poligon']}
+    geoColumns = ['geom']
 
     numbers = set([match.group(0) for match in re.finditer(r"\d+", sentence)])
     coordinates = set([match.group(0) for match in re.finditer(r"\(\d+,\d+\)", sentence)])
@@ -174,6 +189,7 @@ def parse(sentence, metadata):
     OR -> 'atau'
     SEPARATOR -> 'yang' | 'jika' | 'ketika'
     COMMA -> ','
+    DET -> 'tersebut'
     """
 
     # Node Agregat
@@ -191,15 +207,18 @@ def parse(sentence, metadata):
     ABSIS -> 'absis'
     ORDINAT -> 'ordinat'
     KOORDINAT -> 'koordinat'
-    JARAK -> 'jarak'
+    JARAK1 -> 'jarak'
+    JARAK2 -> 'berjarak' | 'jaraknya'
     IN -> 'dalam' | 'pada' | 'ada' 'di'
     OUTSIDE -> 'luar'
-    PANJANG -> 'panjang'
-    LUAS -> 'luas'
+    PANJANG1 -> 'panjang'
+    PANJANG2 -> 'panjangnya'
+    LUAS1 -> 'luas'
+    LUAS2 -> 'berluas' | 'luasnya'
     KELILING -> 'keliling'
-    OVERLAPS -> 'iris' | 'singgung'
-    OVERLAP -> 'irisan' | 'kena'
-    MEETS -> 'di' 'samping' | 'belah'
+    OVERLAPS -> 'iris' | 'singgung' | 'kena'
+    OVERLAP -> 'irisan'
+    MEETS -> 'di' 'samping' | 'belah' | 'ada' 'di' 'belah' | 'di' 'belah'
     WITHIN -> 'jangkau'
     PART -> 'bagian' | 'daerah'
     """
@@ -212,6 +231,7 @@ def parse(sentence, metadata):
     M -> 'meter' | 'm'
     MIL -> 'mil'
     M2 -> 'meter' 'persegi'
+    KM2 -> 'kilometer' 'persegi'
     """
     nodes = nodes + temp
 
@@ -240,10 +260,10 @@ def parse(sentence, metadata):
     S -> WORDS
     WORDS -> WORD WORDS | WORD  
     WORD -> SIDE | LENGTH | WIDTH | LU | RB | PUSAT | SQUARE | RECTANGLE | COMMAND
-    WORD -> MIL | M | KM | M2 | LESS | MORE | EQUAL | NOT | AND | OR | SEPARATOR | COMMA
-    WORD -> ABSIS | ORDINAT | KOORDINAT | JARAK | IN | WITHIN | OUTSIDE | PANJANG | LUAS
-    WORD -> KELILING | OVERLAP | OVERLAPS | MEETS | FIELD | RELATION | VALUE | NUMBER
-    WORD -> TIME | COOR | COUNT | MAX | MIN | SUM | PART | UNITDESC | REMOVES
+    WORD -> MIL | M | KM | M2 | KM2 | LESS | MORE | EQUAL | NOT | AND | OR | SEPARATOR | COMMA| DET
+    WORD -> ABSIS | ORDINAT | KOORDINAT | JARAK1 | JARAK2 | IN | WITHIN | OUTSIDE | PANJANG1 | PANJANG2
+    WORD -> LUAS1 | LUAS2 | KELILING | OVERLAP | OVERLAPS | MEETS | FIELD | RELATION | VALUE
+    WORD -> NUMBER | TIME | COOR | COUNT | MAX | MIN | SUM | PART | UNITDESC | REMOVES
     """
 
     print("\nPreprocessing kalimat...")
@@ -327,7 +347,7 @@ def parse(sentence, metadata):
             parse_tree = t
             break
 
-    #print("tree", parse_tree)
+    print("tree", parse_tree)
 
     if (parse_tree==None):
         #print("tes")
@@ -345,31 +365,39 @@ def parse(sentence, metadata):
     #print("temp parse tree",parse_tree)
 
     removeList = traverseRemoval(parse_tree, [])
+    sentence = sentence.replace("kurang dari", "kurang darixyz")
+    sentence = sentence.replace("lebih dari", "lebih darixyz")
     sentence = remove(sentence, removeList)
+    sentence = sentence.replace("darixyz", "dari")
     print("Kalimat hasil preprocessing", sentence)
 
     # SPATIALOP FIELDS
     # QUERIES -> QUERY COMMA QUERIES | QUERY CONJ QUERIES | QUERY
-
+    # FIELDS -> FIELD | FIELD FIELDS | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS
+    # SPATIALOPS -> SPATIALOP COMMA SPATIALOPS | SPATIALOP CONJ SPATIALOPS | SPATIALOP
+    # CONDITION -> SPATIALOPS CONDITION | SPATIALOP COND | SPATIALOP OPERATOR
+    # PHRASES -> PART RELATION | PART IN RELATION | PART RELATION VALUE | PART FIELD RELATION VALUE | PART IN RELATION VALUE | PART IN FIELD RELATION VALUE | PART RELATION FIELD VALUE | PART IN RELATION FIELD VALUE
+    # COND -> SPATIALOP OPERATOR RELATION VALUE | FIELD OPERATOR
     rule = """
     S -> QUERY
-    QUERY -> COMMAND CONDITION | COMMAND VALUE
-    FIELDS -> FIELD | FIELD FIELDS | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS
+    QUERY -> COMMAND PHRASES | COMMAND VALUE
+    FIELDS -> FIELD | SPATIALOP1 | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS | SPATIALOP1 CONJ FIELDS | SPATIALOP1 COMMA FIELDS | SPATIALOP1 COMMA CONJ FIELDS
     VALUES -> VALUE CONJ VALUE | VALUE COMMA VALUE | VALUE VALUES | VALUE
-    CONDITION -> OVERLAP FIELD RELATION VALUE FIELD RELATION VALUE | AGGREGATE CONDITION | COND CONJ CONDITION | COND COMMA CONDITION | COND COMMA CONJ CONDITION | COND CONDITION | RELATION SEPARATOR CONDITION | FIELD SEPARATOR CONDITION | COND SEPARATOR CONDITION | SPATIALOP OPERATOR | SPATIALOP COND OPERATOR | COND SPATIALOP OPERATOR | SPATIALOP GEOCONDS | SPATIALOP COND COND | SPATIALOP COND CONJ COND | NOT SPATIALOP COND COND | SPATIALOP COND OPERATOR | SPATIALOP COND COND OPERATOR | SPATIALOP COND | NOT SPATIALOP COND | SPATIALOP VALUES | SPATIALOP VALUES CONDITION | SPATIALOPS CONDITION | COND | UNITCOND
+    PHRASES -> OVERLAP FIELD RELATION VALUE FIELD RELATION VALUE | AGGREGATE PHRASES | PHRASE CONJ PHRASES | PHRASE COMMA PHRASES | PHRASE COMMA CONJ PHRASES | PHRASE PHRASES | RELATION SEPARATOR PHRASES | FIELD SEPARATOR PHRASES | PHRASE SEPARATOR PHRASES | SPATIALOP PHRASE OPERATOR | PHRASE SPATIALOP OPERATOR | SPATIALOP GEOCONDS | SPATIALOP PHRASE PHRASE | SPATIALOP PHRASE CONJ PHRASE | NOT SPATIALOP PHRASE PHRASE | SPATIALOP PHRASE OPERATOR | SPATIALOP PHRASE PHRASE OPERATOR | NOT SPATIALOP PHRASE | SPATIALOP VALUES | SPATIALOP VALUES PHRASES | PHRASE | UNITCOND
     GEOCONDS -> GEOCOND COMMA GEOCONDS | GEOCOND CONJ COMMA GEOCOND | GEOCOND
     GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER | POINT COOR OPERATOR
-    COND -> PART RELATION | PART IN RELATION | PART RELATION VALUE | PART FIELD RELATION VALUE | PART IN RELATION VALUE | PART IN FIELD RELATION VALUE | PART RELATION FIELD VALUE | PART IN RELATION FIELD VALUE | NOT FIELD VALUE | FIELDS RELATION | FIELDS OPERATOR | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | FIELDS VALUE | FIELDS TIME | RELATION FIELDS VALUE | FIELDS NOT VALUE | FIELDS NOT TIME | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | RELATION FIELDS | RELATION VALUE | RELATION NOT VALUE | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP OPERATOR RELATION VALUE
+    PHRASE ->  PART PHRASE | NOT FIELD VALUE | FIELDS RELATION | FIELD OPERATOR | FIELD RELATION DET OPERATOR | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | FIELDS VALUE | FIELDS TIME | RELATION FIELDS VALUE | FIELDS NOT VALUE | FIELDS NOT TIME | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | RELATION FIELDS | RELATION VALUE | RELATION NOT VALUE | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP PHRASE
     OPERATOR -> OP NUMBER | OP NUMBER UNIT | NUMBER | NUMBER UNIT
     OP -> LESS | MORE | EQUAL
     UNITCOND -> UNITDESC UNIT
-    UNIT -> KM | M | MIL | M2
+    UNIT -> KM | M | MIL | M2 | KM2
     GEOMETRY -> SQUARE | RECTANGLE
     POINT -> LU | RU | LB | RB | PUSAT | 'titik'
     SIZE -> SIDE | LENGTH | WIDTH
     CONJ -> AND | OR
-    SPATIALOP -> PANJANG | LUAS | KELILING | IN | OUTSIDE | JARAK | OVERLAP | OVERLAPS | MEETS | ABSIS | ORDINAT | WITHIN | KOORDINAT
-    SPATIALOPS -> SPATIALOP COMMA SPATIALOPS | SPATIALOP CONJ SPATIALOPS | SPATIALOP
+    SPATIALOP -> SPATIALOP1 | SPATIALOP2
+    SPATIALOP1 -> PANJANG1 | LUAS1 | KELILING | IN | OUTSIDE | JARAK1 | OVERLAP | ABSIS | ORDINAT | WITHIN | KOORDINAT
+    SPATIALOP2 -> LUAS2 | JARAK2 | PANJANG2 | MEETS | OVERLAPS
     AGGREGATE -> COUNT | MAX | MIN | SUM
     """
 

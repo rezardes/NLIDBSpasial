@@ -217,7 +217,7 @@ def convertToSQL(parsing, metadata, synonyms):
     global geoColumns
     global synSet
 
-    relations = metadata["relations"]
+    '''relations = metadata["relations"]
     fields = metadata["fields"]
     values = metadata["values"]
     manyValues = metadata["manyValues"]
@@ -226,6 +226,17 @@ def convertToSQL(parsing, metadata, synonyms):
     attrs = metadata["attrs"]
     geoms = metadata["geoms"]
     geoColumns = metadata["geoColumns"]
+    synSet = synonyms'''
+
+    relations = ['provinsi', 'kota', 'restoran', 'negara', 'area', 'wifi']
+    fields = ['nama', 'alamat', 'franchise', 'posisi', 'populasi']
+    values = ['bandung', 'medan', 'connex', 'indonesia']
+    manyValues = ['jawa barat', 'yagami ramen']
+    connections = {}
+    connections["|"] = []
+    attrs = {'provinsi':['nama', 'geom'], 'kota': ['nama', 'geom', 'populasi'], 'restoran': ['nama', 'geom', 'franchise'], 'posisi': ['posisi'], 'negara': ['nama', 'populasi'], 'wifi': ['nama', 'jangkauan'], 'area': ['nama', 'geom']}
+    geoms = {'provinsi': ['geom', '4326', 'poligon'], 'negara': ['geom', '4326', 'poligon'], 'kota': ['geom', '4326', 'point'], 'restoran': ['geom', '4326', 'point'], 'posisi':['posisi', '4326', 'point'],  'area': ['geom', '4326', 'poligon']}
+    geoColumns = ['geom']
     synSet = synonyms
 
     #print("geomsinit", geoms)

@@ -193,8 +193,9 @@ def getMetadata(database, isLoad):
 
     return metadata, synSet    
 
-
-metadata, synSet = getMetadata('sample2', True)
+metadata = []
+synSet = {'nama': 'nama'}
+#metadata, synSet = getMetadata('sample2', True)
 #print(metadata['connection'])
 '''
 conn = psycopg2.connect(host="localhost", database="sample2", user="postgres", password="1234")
