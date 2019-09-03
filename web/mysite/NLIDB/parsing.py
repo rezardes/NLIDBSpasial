@@ -81,6 +81,8 @@ def preprocessing(sentence):
     sentence = sentence.replace(',', ' xyz')
     sentence = sentence.replace('tersebut', 'tersebutxyz')
     sentence = sentence.replace('berjarak', 'berjarakxyz')
+    sentence = sentence.replace('jaraknya', 'jaraknyaxyz')
+    #sentence = sentence.replace('bersebelahan', 'bersebelahanxyz')
     sentence = sentence.replace(' irisan', ' irisanabc')
     sentence = sentence.replace('jangkauan', 'jangkauanabc')
     sentence = sentence.replace('.', 'aziz')
@@ -98,7 +100,7 @@ def preprocessing(sentence):
     prefixList = ['ber-']
     stemList = ['beribukota', 'ibukota']
 
-    print("sentence", sentence)
+    #print("sentence", sentence)
 
     output = stemmer.stem(sentence)
     output = output + " "
@@ -120,12 +122,15 @@ def preprocessing(sentence):
     output = output.replace(' xyz', ' ,')
     output = output.replace('tersebutxyz', 'tersebut')
     output = output.replace('berjarakxyz', 'berjarak')
+    output = output.replace('jaraknyaxyz', 'jaraknya')
+    #output = output.replace('bersebelahanxyz', 'bersebelahan')
     output = output.replace('irisanabc', 'irisan')
     output = output.replace('jangkauanabc', 'jangkauan')
     output = output.replace('aziz', '.')
     output = output.replace('lingkaranxyz', 'lingkaran')
     output = output.replace('satuanxyz', 'satuan')
     output = output.replace('bagianxyz', 'bagian')
+    output = output.replace('ada di belah', 'di belah')
     #print("Hasil remove: "+output)
 
     return output
@@ -159,21 +164,12 @@ def parse(sentence, metadata):
     global attrs
     global manyValues
 
-    '''relations = metadata["relations"]
+    relations = metadata["relations"]
     fields = metadata["fields"]
     values = metadata["values"]
     manyValues = metadata["manyValues"]
     connections = metadata["connection"]
-    attrs = metadata["attrs"]'''
-    relations = ['provinsi', 'kota', 'restoran', 'negara', 'area', 'wifi']
-    fields = ['nama', 'alamat', 'franchise', 'posisi', 'populasi']
-    values = ['bandung', 'medan', 'connex', 'indonesia']
-    manyValues = ['jawa barat', 'yagami ramen']
-    connections = {}
-    connections["|"] = []
-    attrs = {'provinsi':['nama', 'geom'], 'kota': ['nama', 'geom', 'populasi'], 'restoran': ['nama', 'geom', 'franchise'], 'posisi': ['posisi'], 'negara': ['nama', 'populasi'], 'wifi': ['nama', 'jangkauan'], 'area': ['nama', 'geom']}
-    geoms = {'provinsi': ['geom', '4326', 'poligon'], 'negara': ['geom', '4326', 'poligon'], 'kota': ['geom', '4326', 'point'], 'restoran': ['geom', '4326', 'point'], 'posisi':['posisi', '4326', 'point'],  'area': ['geom', '4326', 'poligon']}
-    geoColumns = ['geom']
+    attrs = metadata["attrs"]
 
     numbers = set([match.group(0) for match in re.finditer(r"\d+", sentence)])
     coordinates = set([match.group(0) for match in re.finditer(r"\(\d+,\d+\)", sentence)])
@@ -203,6 +199,7 @@ def parse(sentence, metadata):
 
     # Pikirkan pula untuk ganti 'ada' 'di' sebagai INTERSECTS
     # Node Spatial Operator
+    # WITHIN -> 'jangkau'
     temp = """
     ABSIS -> 'absis'
     ORDINAT -> 'ordinat'
@@ -216,10 +213,9 @@ def parse(sentence, metadata):
     LUAS1 -> 'luas'
     LUAS2 -> 'berluas' | 'luasnya'
     KELILING -> 'keliling'
-    OVERLAPS -> 'iris' | 'singgung' | 'kena'
+    OVERLAPS -> 'iris' | 'singgung' | 'kena' | 'jangkau'
     OVERLAP -> 'irisan'
-    MEETS -> 'di' 'samping' | 'belah' | 'ada' 'di' 'belah' | 'di' 'belah'
-    WITHIN -> 'jangkau'
+    MEETS -> 'di' 'samping' | 'belah' | 'di' 'belah'
     PART -> 'bagian' | 'daerah'
     """
     nodes = nodes + temp
@@ -271,7 +267,7 @@ def parse(sentence, metadata):
     print("preprocessing", sentence)
 
     removes = set([match.group(0) for match in re.finditer(r"\w+\.|\w+", sentence)])
-    #print(removes)
+    #print("removes", removes)
 
     # Penanganan Multi Value termasuk Value
     # Sebaiknya dimasukkan pada penanganan CFG ERROR
@@ -311,20 +307,9 @@ def parse(sentence, metadata):
                     words.pop(idx)
                 else:
                     for split in splitter:
-                        removes.remove(split)
-                    #for i in range(0, len(splitter)):
-                        #counters.append(idx+i)
-
-    '''i = 0
-    temp = []
-    for idx, match in enumerate(re.finditer(r"\w+", sentence)):
-        if (idx == counters[0]):
-            i = i + 1
-        else:
-            temp.append(match.group(0))'''
-
-    #print("removes", removes)
-
+                        if (split in removes):
+                            removes.remove(split)
+    #print("removes", removes)                        
     grammar = CFG.fromstring(temp+nodes)
 
     # Load grammar into a parser
@@ -347,7 +332,7 @@ def parse(sentence, metadata):
             parse_tree = t
             break
 
-    print("tree", parse_tree)
+    #print("tree", parse_tree)
 
     if (parse_tree==None):
         #print("tes")
@@ -357,9 +342,9 @@ def parse(sentence, metadata):
         for t in parser.parse(tokens):
             parse_tree = t
             break
-        print("=====")
-        for t in parser.parse(tokens):
-            print(t)
+        #print("=====")
+        #for t in parser.parse(tokens):
+        #    print(t)'''
         #print(parse_tree)
 
     #print("temp parse tree",parse_tree)
@@ -367,6 +352,7 @@ def parse(sentence, metadata):
     removeList = traverseRemoval(parse_tree, [])
     sentence = sentence.replace("kurang dari", "kurang darixyz")
     sentence = sentence.replace("lebih dari", "lebih darixyz")
+    sentence = sentence.replace("ada di dalam", "dalam")
     sentence = remove(sentence, removeList)
     sentence = sentence.replace("darixyz", "dari")
     print("Kalimat hasil preprocessing", sentence)
@@ -376,17 +362,20 @@ def parse(sentence, metadata):
     # FIELDS -> FIELD | FIELD FIELDS | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS
     # SPATIALOPS -> SPATIALOP COMMA SPATIALOPS | SPATIALOP CONJ SPATIALOPS | SPATIALOP
     # CONDITION -> SPATIALOPS CONDITION | SPATIALOP COND | SPATIALOP OPERATOR
-    # PHRASES -> PART RELATION | PART IN RELATION | PART RELATION VALUE | PART FIELD RELATION VALUE | PART IN RELATION VALUE | PART IN FIELD RELATION VALUE | PART RELATION FIELD VALUE | PART IN RELATION FIELD VALUE
+    # PHRASES -> OVERLAP FIELD RELATION VALUE FIELD RELATION VALUE | SPATIALOP PHRASE PHRASE | PART RELATION | PART IN RELATION | PART RELATION VALUE | PART FIELD RELATION VALUE | PART IN RELATION VALUE | PART IN FIELD RELATION VALUE | PART RELATION FIELD VALUE | PART IN RELATION FIELD VALUE
     # COND -> SPATIALOP OPERATOR RELATION VALUE | FIELD OPERATOR
+    # PHRASE -> RELATION FIELDS
     rule = """
     S -> QUERY
-    QUERY -> COMMAND PHRASES | COMMAND VALUE
+    QUERY -> COMMAND DESCRIPTION
+    DESCRIPTION -> FPHRASE SEPARATOR PHRASES COMMA DESCRIPTION | FPHRASE SEPARATOR PHRASES CONJ DESCRIPTION | FPHRASE SEPARATOR PHRASES COMMA CONJ DESCRIPTION | FPHRASE CONJ DESCRIPTION | FPHRASE COMMA DESCRIPTION | FPHRASE COMMA CONJ DESCRIPTION | FPHRASE SEPARATOR PHRASES | FPHRASE
     FIELDS -> FIELD | SPATIALOP1 | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS | SPATIALOP1 CONJ FIELDS | SPATIALOP1 COMMA FIELDS | SPATIALOP1 COMMA CONJ FIELDS
     VALUES -> VALUE CONJ VALUE | VALUE COMMA VALUE | VALUE VALUES | VALUE
-    PHRASES -> OVERLAP FIELD RELATION VALUE FIELD RELATION VALUE | AGGREGATE PHRASES | PHRASE CONJ PHRASES | PHRASE COMMA PHRASES | PHRASE COMMA CONJ PHRASES | PHRASE PHRASES | RELATION SEPARATOR PHRASES | FIELD SEPARATOR PHRASES | PHRASE SEPARATOR PHRASES | SPATIALOP PHRASE OPERATOR | PHRASE SPATIALOP OPERATOR | SPATIALOP GEOCONDS | SPATIALOP PHRASE PHRASE | SPATIALOP PHRASE CONJ PHRASE | NOT SPATIALOP PHRASE PHRASE | SPATIALOP PHRASE OPERATOR | SPATIALOP PHRASE PHRASE OPERATOR | NOT SPATIALOP PHRASE | SPATIALOP VALUES | SPATIALOP VALUES PHRASES | PHRASE | UNITCOND
+    PHRASES -> PHRASE CONJ PHRASES | PHRASE COMMA PHRASES | PHRASE COMMA CONJ PHRASES | PHRASE
     GEOCONDS -> GEOCOND COMMA GEOCONDS | GEOCOND CONJ COMMA GEOCOND | GEOCOND
     GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER | POINT COOR OPERATOR
-    PHRASE ->  PART PHRASE | NOT FIELD VALUE | FIELDS RELATION | FIELD OPERATOR | FIELD RELATION DET OPERATOR | FIELDS RELATION VALUE | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | FIELDS VALUE | FIELDS TIME | RELATION FIELDS VALUE | FIELDS NOT VALUE | FIELDS NOT TIME | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | RELATION FIELDS | RELATION VALUE | RELATION NOT VALUE | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP PHRASE
+    FPHRASE -> RELATION | FIELDS RELATION | FIELDS RELATION VALUE | RELATION FIELD VALUE | RELATION VALUE | SPATIALOP1 PHRASE PHRASE | SPATIALOP1 PHRASE | VALUE
+    PHRASE ->  PART PHRASE | NOT FIELD VALUE | FIELD RELATION | FIELD RELATION VALUE | FIELD OPERATOR | FIELD RELATION DET OPERATOR | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | FIELDS VALUE | FIELDS TIME | RELATION FIELDS VALUE | FIELDS NOT VALUE | FIELDS NOT TIME | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | RELATION VALUE | RELATION NOT VALUE | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP PHRASE OPERATOR | SPATIALOP PHRASE
     OPERATOR -> OP NUMBER | OP NUMBER UNIT | NUMBER | NUMBER UNIT
     OP -> LESS | MORE | EQUAL
     UNITCOND -> UNITDESC UNIT
@@ -406,20 +395,23 @@ def parse(sentence, metadata):
 
     # Load grammar into a parser
     lgrammar, lproductions = addSuffixGrammar(grammar)
+    #print(lgrammar)
     parser = nltk.RecursiveDescentParser(lgrammar)
 
-    '''for t in parser.parse(tokens):
-        #print(t)
-        parse_tree = t
-        break'''
+    #for t in parser.parse(tokens):
+    #    #print(t)
+    #    parse_tree = t
+    #    break'''
     
     print("=====")
     counter = 0
     for t in parser.parse(tokens):
         if (counter==0):
             parse_tree = t
-            counter = counter + 1
+            counter = 1
         print(t)
+
+    print(parse_tree)
 
     return parse_tree
 

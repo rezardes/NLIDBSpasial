@@ -1,193 +1,8 @@
 import sys
 sys.path.insert(0, "D:\\My Documents\\Kuliah\\Tugas Akhir\\Experiment\\NLIDBSpasial\\web\\mysite")
 
-from NLIDB.connector import getMetadata
-
-metadata, synSet = getMetadata('sample2', True)
-geoms = metadata["geoms"]
-print(geoms)
-
-result = {}
-result['cond'] = ['F: nama', 'R: wifi', 'V: mifi m5', 'AND', 'F: nama', 'R: wifi', 'V: huawei e5577', 'AND', 'R: posisi_wifi', 'F: waktu', 'T: 13:00']
-result['relation'] = ['wifi', 'V: mifi m5', '|', 'wifi', 'V: huawei e5577']
-result['fields'] = ['O: OVERLAP', 'jangkauan', 'R: wifi', 'V: mifi m5', 'jangkauan', 'R: wifi', 'V: huawei e5577']
-semantics = {'jangkauan': 'circleRadius'}
-
-def isNonFieldinFields(temp):
-
-    return temp.startswith("R: ") or temp.startswith("V: ") or temp.startswith("O: ") or temp.startswith("G: ")
-
-def getIndexRelation(relation, value="", srcRelation="", srcValue=""):
-
-    counter = 0
-    relActive = ""
-    valActive = ""
-    for idx, val in enumerate(result["relation"]):
-
-        if (idx==0):
-            relActive = result["relation"][0]
-            if (result["relation"][1].startswith("V:")):
-                valActive = result["relation"][1].replace("V: ", "")
-        #print("val", val)
-        #print("relActive valActive", relActive, valActive)
-        if (val=='|'):
-            if (idx+1 < len(result["relation"])):
-                relActive = result["relation"][idx+1]
-                if (result["relation"][idx+2].startswith("V:")):
-                    valActive = result["relation"][idx+2].replace("V: ", "")
-        else:
-            if (not isNonFieldinFields(val)):
-                counter = counter + 1
-            if (val==relation and (srcRelation!="" or srcValue!="")):
-                if (value!=""):
-                    if (result["relation"][idx+1].startswith("V: ")):
-                        if (result["relation"][idx+1].replace("V: ", "")==value):
-                            if (srcValue!=""):
-                                #print("tes1")
-                                if (relActive==srcRelation):
-                                    return counter
-                            else:
-                                #print("tes2")
-                                print(relActive, srcRelation, valActive, srcValue)
-                                if (relActive==srcRelation and valActive==srcValue):
-                                    return counter
-                else:
-                    if (srcValue!=""):
-                                #print("tes1")
-                        if (relActive==srcRelation and valActive==srcValue):
-                            return counter
-                    else:
-                        #print("tes2")
-                        #print(relActive, srcRelation, valActive, srcValue)
-                        if (relActive==srcRelation):
-                            return counter
-
-            if (val==relation and srcRelation=="" and srcValue==""):
-                #print("tes")
-                if (value!=""):
-                    if (result["relation"][idx+1].replace("V: ", "")==value):
-                        return counter
-                else:
-                    return counter
-        
-    counter = -1
-    return counter    
-
-#! Mungkin Algoritmanya masih salah
-def getConnectionHasGeom(source, relation):
-
-    relAns = ''
-    #print("relation", relation)
-    for i in rangeDestinationRel(connections[relation]):
-        print(source, connections[relation][i])
-        if ( connections[relation][i] not in source):
-            if (hasGeom(connections[relation][i])):
-                relAns = connections[relation][i]
-                source.append(relation)
-                break
-            else:
-                source.append(relation)
-                relAns, source = getConnectionHasGeom(source, connections[relation][i])
-                #source.pop()
-
-    #print("sourceResult", source)
-    return relAns, source
-
-
-def getNthStartingIdxField(N):
-
-    key = "fields"
-
-    '''if (N==1):
-        return 0'''
-
-    fieldPhase = True
-    counter = 0
-    turn = 0
-    breakPhase = False
-    for temp in result[key]:
-        
-        if (fieldPhase):
-            #! Mungkin disini kurang "code"
-            if (isNonFieldinFields(temp)):
-                fieldPhase = False
-        else:
-            if (not isNonFieldinFields(temp)):
-                #print("temp", temp)
-                fieldPhase = True
-                counter = counter + 1
-                if (counter==N):
-                    #print("breakPhase")
-                    breakPhase = True
-                    #turn = turn + 1
-                    break
-
-        turn = turn + 1
-    
-    if (not breakPhase):
-        '''print("turn", turn)
-        #turn = turn - 1
-    else:'''
-        turn = -1
-
-    return turn
-
-#! Bagaimana dengan time?
-# value berupa "V: "
-#! Belum menangani untuk relation yang sendiri tanpa value (periksa dari keterhubungan)
-#! SEKARANG MUNGKIN SUDAH TERTANGANI
-def insertConnectivity(insertion, relation, value):
-    idxInsertion = -1
-    if (insertion != relation):
-        for i in range(0, len(result["relation"])):
-            if (result["relation"][i]==relation):
-                if (value != "" and i+1 < len(result["relation"])):
-                    if (result["relation"][i+1]==value):
-                        for i in range(i+1, len(result["relation"])):
-                            if (i == len(result["relation"])-1):
-                                idxInsertion = len(result["relation"])
-                            elif (result["relation"][i]==insertion):
-                                idxInsertion = -1
-                                break
-                            elif (result["relation"][i] == "|"):
-                                idxInsertion = i
-                                break
-                else:
-                    for i in range(i+1, len(result["relation"])):
-                        if (i == len(result["relation"])-1):
-                            idxInsertion = len(result["relation"])
-                        elif (result["relation"][i]==insertion):
-                            idxInsertion = -1
-                            break
-                        elif (result["relation"][i] == "|"):
-                            idxInsertion = i
-                            break
-
-    #print("idxInsertion", idxInsertion)
-    
-    if (idxInsertion != -1):
-        found = False
-        for i in range(idxInsertion, len(result["relation"])):
-            if (result["relation"][i].startswith("V:")):
-                break
-            elif (result["relation"][i]==insertion):
-                found = True
-
-        #print("found", found)
-
-        if (not found):
-            result["relation"].insert(idxInsertion, insertion)
-
-insertConnectivity('wifi', 'wifi', 'V: mifi m5')
-insertConnectivity('posisi_wifi', 'wifi', 'V: mifi m5')
-insertConnectivity('posisi', 'wifi', 'V: mifi m5')
-insertConnectivity('posisi_wifi', 'wifi', 'V: mifi m5')
-insertConnectivity('posisi', 'wifi', 'V: mifi m5')
-insertConnectivity('wifi', 'wifi', 'V: huawei e5577')
-insertConnectivity('posisi_wifi', 'wifi', 'V: huawei e5577')
-insertConnectivity('posisi', 'wifi', 'V: huawei e5577')
-print(result['relation'])
-indices = {'wifimifim5': '1', 'posisi_wifi': '6', 'wifihuaweie5577': '4'}
+SRID_Params = {'JARAK': 3857, 'PANJANG': 3857, 'LUAS': 3857, 'KELILING': 3857, 'ABSIS': 4326, 'ORDINAT': 4326}
+SRID_Result = {'OVERLAP': 4326}
 
 parameter = {
         "PANJANG": 1,
@@ -201,155 +16,622 @@ parameter = {
         "MEETS": 2,
         "ABSIS": 1,
         "ORDINAT": 1,
+}
+
+def isNonFieldinFields(temp):
+
+    return temp.startswith("R: ") or temp.startswith("V: ") or temp.startswith("O: ") or temp.startswith("G: ")
+
+def mapToFunctions(keyword):
+
+    functions = {
+        "PANJANG": 'ST_Length',
+        "LUAS": 'ST_Area',
+        "KELILING": 'ST_Perimeter',
+        "IN": 'ST_Within',
+        "OUTSIDE": 'NOT ST_Within',
+        "JARAK": 'ST_Distance',
+        "OVERLAP": 'ST_Intersection',
+        "OVERLAPS": 'ST_Intersects',
+        "MEETS": 'ST_Touches',
+        "ABSIS": 'ST_X',
+        "ORDINAT": 'ST_Y',
     }
+
+    if keyword in functions:
+        return functions[keyword]
+    else:
+        return 'NOT FOUND'
 
 def declareFunctions(keyword, params, *types):
 
     function = mapToFunctions(keyword)
-    if (len(types)>0):
-        if ( ("point" in types[0] or "line" in types[0]) and ("point" in types[1] or "line" in types[1]) and keyword=="IN" ):  
-            function = "ST_Intersects"
+    query = ''
+    geog = ''
 
-    if (parameter[keyword]==1):
-        return function + '(' + params[0] + ')'
-    elif (parameter[keyword]==2):
-        return function + '(' + params[0] + ', ' + params[1] + ')'
-    else:
+    if (keyword not in parameter):
         return ''
+    elif (parameter[keyword]==1):
+        if (types[0]=="geog"):
+            query = function + params[0] + '::geometry'
+        else:
+            query = function + 'ST_Transform(' + params[0] + '::geometry, ' + SRID_Params[params[0]] + ')'
+    elif (parameter[keyword]==2):
+        appendResult1 = ""
+        appendResult2 = ""
+        appendTransform1 = ""
+        appendTransform2 = ""
+        if (keyword in SRID_Result):
+            appendResult1 = "ST_Transform("
+            appendResult2 = ")"
+        if (keyword in SRID_Params):
+            appendTransform1 = "ST_Transform("
+            appendTransform2 = ")"
+            if (types[0]=='geog'):
+                geog = "::geometry"
+        
+        query = query + appendResult1 + function + '(' + appendTransform1 + params[0] + geog + appendTransform2 + ', ' + appendTransform1 + params[1] + geog + appendTransform2 + ')' + appendResult2
 
-def getFromCodeField(idx, key, code):
+    return query
 
-    for i, arr in enumerate(result[key][idx:]):
+# ["O: IN", "F: posisi", "R: posisi", "S: wifi", "SV: connex", ".", "F: geom", "R: area", "V: yagami ramen", 
+ #               "C: AND", "O: JARAK", "F: posisi", "R: posisi", "S: wifi", "SV: connex", ".", "F: posisi", "R: posisi", "S: wifi", 
+ #               "SV: yagami ramen", "M: <", "1000", "U: KM", "|"]
+
+result = {}
+#result["relation"] = ['wifi', 'V: connex', 'posisi', '|', 'area', 'V: yagami ramen', '|', 'wifi', 'V: yagami ramen', 'posisi', '|']
+#result["relation"] = ['provinsi', '|', 'provinsi', 'V: jawa barat', '|']
+def getDefaultAttribute():
+
+    defAttrs = {}
+
+    f = open("default-attribute.txt", "r")
+    contents = f.readlines()
+    for content in contents:
+        words = content.split(':')
+        defAttrs[words[0].strip()] = words[1].strip()
+
+    return defAttrs
+
+# Daftar Variabel Global
+defAttrs = getDefaultAttribute()
+locator = {}
+result["cond"] = []
+result["fields"] = []
+result["relation"] = []
+connections = {'jalan': [], 'area': [], 'wifi': ['id', 'posisi_wifi', 'id_wifi'], 'posisi_wifi': ['id_wifi', 'wifi', 'id'], '|': []}
+#wordList = ['O: JARAK1', '<P>', 'F: posisi', 'R: wifi', 'V: connex', '</P>', '<P>', 'F: posisi', 'R: wifi', 'V: yagami ramen', '</P>']
+wordList = ['R: provinsi', 'SEPARATOR', 'O:2 MEETS', '<p>', 'R: provinsi', 'V: jawa barat', '</p>', "C: AND", 'O:2 MEETS', '<p>', 'R: provinsi', 'V: jawa timur', '</p>', '|']
+geoms = {'jalan': ['geom', 'line', 4326], 'area': ['geom', 'polygon', 4326], 'wifi': ['jangkauan', 'polygon', 4326], 
+        'posisi': ['posisi', 'point', 4326], 'provinsi': ['geog', 'geog']}
+
+#S Sementara pake brute force
+def getNthPhrase(n):
+
+    counter = 0
+    for idx, elem in enumerate(wordList):
+        if (elem=='<P>'):
+            counter = counter + 1
+            if (counter==n):
+                return idx
+
+    return -1
+
+def getFields(arrs):
+
+    results = []
+    for arr in arrs:
+        if (arr.startswith("F:")):
+            results.append(arr.replace("F: ", ""))
+
+    return results
+
+def getCodes(arrs, code):
+
+    idxResults = []
+    results = []
+    for idx, arr in enumerate(arrs):
         if (arr.startswith(code)):
-            return arr.replace(code, ''), idx+i
-        if (arr.startswith("V: ")):
-            break
+            idxResults.append(idx)
+            results.append(arr.replace("code", ""))
 
+    return idxResults, results
+
+def getCodeInList(arrs, code):
+
+    for idx, arr in enumerate(arrs):
+        if (arr.startswith(code)):
+            return arr.replace(code, ''), idx
     return '', ''
 
-query = ""
-for idx, elem in enumerate(result["fields"]):
-    print("elem", elem)
-    if (not elem.startswith("V: ") and not elem.startswith("R: ") and not elem.startswith("G: ") and not elem.startswith("O: ") and not elem.startswith("A: ")):
-        #print("fields")
-        #print(result["fields"][index:])
-        rel, val = extractFirstRelation(result["fields"][index:])
-        '''if (not elem in attrs[rel]):
-            for i in rangeDestinationRel(connections[rel]):
-                if (elem in attrs[connections[rel][i]]):
-                    rel = connections[rel][i]
-                    val = ""
-                    whereAppend = "r" + indices[rel+val] + "." '''
-        val = val.replace(" ", "")
-        if (elem in geoColumns):
-            query = query + "ST_AsGeoJSON(r" + indices[rel+val] + "." + getSynonym(elem) + ")"
+def addRightRelations():
+
+    idxStarts, temp = getCodes(wordList, '<P>')
+    idxEnds, temp = getCodes(wordList, '</P>')
+    print("fields")
+    for idx, elem in enumerate(idxStarts):
+        fields = getFields(wordList[elem:idxEnds[idx]])
+        print(fields)
+    '''counter = 1
+    iter = getNthPhrase(counter)
+    while (iter != -1):
+        fields = getFields(wordList[iter:])
+        getCodeInList(wordList[iter:])
+
+        counter = counter + 1'''
+
+# Pengolah connections
+def rangeDestinationId(connections):
+
+    return range(2, len(connections), 3)
+
+def rangeDestinationRel(connections):
+
+    return range(1, len(connections), 3)
+
+#! Mungkin bisa digabung atau dioptimasi
+def isConnected(rel1, rel2):
+
+    for i in rangeDestinationRel(connections[rel1]):
+        if (connections[rel1][i]==rel2):
+            return True
+
+    return False
+
+#! Bisa dioptimasi menjadi sudah ada silsilahnya terlebih dahulu
+traversed = []
+def getConnection(srcRel, destRel):
+
+    global traversed
+    
+    hasil = [srcRel]
+    if (isConnected(srcRel, destRel)):
+       hasil = hasil + [destRel]
+    else:
+        for idx in rangeDestinationRel(connections[srcRel]):
+            if (not srcRel in traversed):
+                hasil = hasil + getConnection(connections[srcRel][idx], destRel)
+            traversed.append(srcRel)
+
+    return hasil
+
+addRightRelations()
+
+'''print("getPhases", getCodes(wordList, '<P>'))
+print("getPhasesEnd", getCodes(wordList, '</P>'))'''
+
+'''print("getNthPhrase", getNthPhrase(1))
+print("getNthPhrase", getNthPhrase(2))
+print("getNthPhrase", getNthPhrase(3))'''
+
+'''def fixResult():
+    for '''
+
+def getIndexRelation(relation, value="", srcRelation="", srcValue=""):
+
+    print(relation, value, srcRelation, srcValue)
+
+    counter = 0
+    relActive = ""
+    valActive = ""
+    #print(result["relation"])
+    for idx, val in enumerate(result["relation"]):
+
+        if (idx==0):
+            relActive = result["relation"][0]
+            if (1 < len(result["relation"]) and result["relation"][1].startswith("V:")):
+                valActive = result["relation"][1].replace("V: ", "")
+        if (val=='|'):
+            if (idx+1 < len(result["relation"])):
+                relActive = result["relation"][idx+1]
+                if (idx+2 < len(result["relation"]) and result["relation"][idx+2].startswith("V:")):
+                    valActive = result["relation"][idx+2].replace("V: ", "")
         else:
-            query = query + "r" + indices[rel+val] + "." + getSynonym(elem)
-        if (isAgg):
-            query = query + "), "
-            isAgg = False
-        else:
-            query = query + ", "
-    elif (elem.startswith("G: ")):
-        if (not isFunction):
-            elem = elem.replace("G: ", "")
-            founds = re.findall("\w+", elem)
-            print("foundlist", founds)
-            if (len(founds)>=2):
-                val = ""
-                for i in range(1, len(founds)):
-                    val = val + founds[i]
-                print("founds", founds[0])
-                print("val", val)
-                print("geoms", geoms)
-                query = query + "r" + indices[founds[0]+val] + "." + geoms[founds[0]][0] + ", "
+            if (not isNonFieldinFields(val)):
+                counter = counter + 1
+            if (val==relation and (srcRelation!="" or srcValue!="")):
+                if (value!=""):
+                    if (result["relation"][idx+1].startswith("V: ")):
+                        if (result["relation"][idx+1].replace("V: ", "")==value):
+                            if (srcValue!=""):
+                                #print("tes1")
+                                if (relActive==srcRelation):
+                                    return str(counter)
+                            else:
+                                #print("tes2")
+                                #print(relActive, srcRelation, valActive, srcValue)
+                                if (relActive==srcRelation and valActive==srcValue):
+                                    return str(counter)
+                else:
+                    if (srcValue!=""):
+                                #print("tes1")
+                        if (relActive==srcRelation and valActive==srcValue):
+                            return str(counter)
+                    else:
+                        #print("tes2")
+                        #print(relActive, srcRelation, valActive, srcValue)
+                        if (relActive==srcRelation):
+                            return str(counter)
+
+            if (val==relation and srcRelation=="" and srcValue==""):
+                #print("tes")
+                if (value!=""):
+                    if (result["relation"][idx+1].replace("V: ", "")==value):
+                        return str(counter)
+                else:
+                    return str(counter)
+        
+    counter = -1
+    return str(counter)
+
+
+
+def getIndexTwoElmt(arrs, rel, code):
+
+    for i in range(0, len(arrs)-1):
+
+        if (arrs[i]==rel and arrs[i+1]==code):
+            return i
+    return -1
+
+# rel non-code; val code
+def addRelVal(rel, val):
+
+    indices = getIndexRelation(rel, val)
+    if (indices=="-1"):
+        result["relation"].append(rel)
+        result["relation"].append(val)
+        result["relation"].append('|')
+
+def addRelation(rel):
+
+    indices = getIndexRelation(rel)
+    if (indices=="-1"):
+        result["relation"].append(rel)
+        result["relation"].append('|')
+
+# Sementara Relation dengan Value
+def makeResultRelation():
+
+    for idx, elem in enumerate(wordList):
+        if (elem.startswith("R:")):
+            if (wordList[idx+1].startswith("V:")):
+                addRelVal(elem.replace("R: ", ""), wordList[idx+1])
             else:
-                query = query + "r" + indices[founds[0]] + "." + geoms[founds[0]][0] + ", "
-    elif (elem.startswith("A: ")):
-        elem = elem.replace("A: ", "")
-        isAgg = True
-        #aggVal = elem
-        query = query + declareAgg(elem) + "("
-    #! Masih berlaku untuk yang spatialOp pertama
-    elif (elem.startswith("O: ")):
-        elem = elem.replace("O: ", "")
-        if (parameter[elem]==2):
-            #i = index
-            #while (result["fields"][i].startswith('O:')):
-            #    i = i + 1
-            
-            '''elem2 = result["fields"][i]
-            elem2 = elem2.replace("G: ", "")
-            founds2 = re.findall("\w+", elem2)
-            elem3 = result["fields"][index+1]
-            elem3 = elem3.replace("G: ", "")
-            founds3 = re.findall("\w+", elem3)'''
-            
-            counter = 1
-            idxField = getNthStartingIdxField(counter)
-            print("idxField idx", idxField, idx)
-            while ( idxField < idx ):
+                print("tes")
+                addRelation(elem.replace("R: ", ""))
+
+makeResultRelation()
+print("relations", result["relation"])
+
+# Bagaimana membuat srcRel dan srcVal?
+def makeResultCond():
+
+    isCond = False
+    rel = ""
+    fld = ""
+    val = ""
+
+    for idx, elem in enumerate(wordList):
+        # Apakah mendingan diganti menjadi yang ada di FPHRASE?
+        if (elem.startswith("R:")):
+            if (isCond):
+                result["cond"].append(elem)
+            else:
+                rel = elem.replace("R: ", "")
+                fld = ""
+                val = ""
+        elif (elem.startswith("F:")):
+            if (isCond):
+                result["cond"].append(elem)
+            else:
+                fld = elem.replace("F: ", "")
+        elif (elem.startswith("V:")):
+            if (isCond):
+                result["cond"].append(elem)
+            else:
+                val = elem.replace("V: ", "")
+        elif (elem.startswith("<p>") or elem.startswith("</p>")):
+            if (isCond):
+                result["cond"].append(elem)
+        elif (elem.startswith("O:")):
+            if (isCond):
+                op = elem.replace("2", "").replace("1", "")
+                result["cond"].append(op)
+                if (elem.startswith("O:2")):
+                    result["cond"].append("<p>")
+                    result["cond"].append("R: "+rel)
+                    if (fld!=""):
+                        result["cond"].append("F: "+fld)
+                    if (val!=""):
+                        result["cond"].append("V: "+val)
+                    result["cond"].append("</p>")
+        elif (elem=="SEPARATOR"):
+            isCond = True
+        elif (elem.startswith("C:")):
+            result["cond"].append(elem)
+        elif (elem == '|'):
+            result["cond"].append('|')
+            isCond = False
+
+makeResultCond()
+print("cond", result["cond"])
+
+# Belum menangani field yang tidak ada di relation
+# Apa yang terjadi kalo query berupa relation value di FPHRASE
+def makeResultFields():
+
+    isFields = True
+    isThereFields = False
+    counter = 0
+    idxList = []
+    for idx, elem in enumerate(wordList):
+
+        if (elem=="SEPARATOR"):
+            isFields = False
+        elif (elem=="|"):
+            isThereFields = False
+            isFields = True
+
+        if (isFields):
+            if (elem.startswith("O:")):
+                spatialOp = elem.replace("1", "").replace("2", "")
+                result["fields"].append(spatialOp)
+            elif (elem.startswith("F:")):
+                isThereFields = True
+                result["fields"].append(elem)
+                idxList.append(counter)
+            elif (elem.startswith("R:")):
+                if (not isThereFields):
+                    result["fields"].append("F: "+geoms[elem.replace("R: ", "")][0])
+                    idxList.append(counter)
+                #else:
+                for idx in idxList:
+                    locator[str(idx)] = elem
+                idxList = []
+                result["fields"].append(elem)
+            elif (elem.startswith("V:")):
+                locator[str(idx)] = '|'+elem
+                result["fields"].append(elem)
+            else:
+                # Untuk kasus dimana tidak perlu membuat lebih dari 1 query SQL
+                if (elem!='|'):
+                    result["fields"].append(elem)
+                else:
+                    counter = counter - 1
+            counter = counter + 1
+
+
+makeResultFields()
+print(result["fields"])
+print(locator)
+
+def makeSelectClause():
+    
+    query = "SELECT "
+    for idx, elem in enumerate(result["fields"]):
+        if (elem.startswith("F:")):
+            words = locator[str(idx)].split('|')
+            for word in words:
+                rel = ""
+                val = ""
+                srcRel = ""
+                srcVal = ""
+                if (word.startswith("R: ")):
+                    rel = word.replace("R: ", "")
+                elif (word.startswith("V: ")):
+                    val = word.replace("V: ", "")
+                elif (word.startswith("SR: ")):
+                    srcRel = word.replace("SR: ", "")
+                elif (word.startswith("SV: ")):
+                    srcVal = word.replace("SV: ", "")
+            query = query + "r" + getIndexRelation(rel, val, srcRel, srcVal)
+            query = query + "." + elem.replace("F: ", "") + ", "
+
+    query = query[:-2]
+
+    return query
+
+query = makeSelectClause()
+print("SELECT:", query)
+
+def makeFromClause():
+    counter = 1
+    query = "FROM "
+    for idx, elem in enumerate(result["relation"]):
+        # Sementara hanya "yang bukan value" saja
+        if (not elem.startswith("V:") and elem != '|'):
+            query = query + elem.replace("V: ", "") + " r" + str(counter) + ", "
+            counter = counter + 1
+
+    query = query[:-2]
+    return query
+
+query = makeFromClause()
+print("FROM:", query)
+
+def createResultIdentifier():
+
+    whereAppend = "("
+    for idx, elem in enumerate(result["relation"]):
+        if (idx+1 < len(result["relation"]) and result["relation"][idx+1].startswith("V:")):
+            whereAppend = whereAppend + "lower(r" + getIndexRelation(elem, result["relation"][idx+1].replace("V: ", ""))
+            whereAppend = whereAppend + "." + defAttrs[elem] + ") = '" + result["relation"][idx+1].replace("V: ", "") + "'"
+            whereAppend = whereAppend + " AND "
+    whereAppend = whereAppend[:-5] + ")"
+    return whereAppend
+
+'''elif (elem.startswith("R: ")):
+            if (isFirst):
+                #print("isFirst", isFirst)
+                relation1 = elem.replace("R: ", "")
+            else:
+                relation2 = elem.replace("R: ", "")
+        elif (elem.startswith("F: ")):
+            if (isFirst):
+                field1 = elem.replace("F: ", "")
+            else:
+                field2 = elem.replace("F: ", "")
+        elif (elem.startswith("V: ")):
+            if (isFirst):
+                value1 = elem.replace("V: ", "")
+            else:
+                value2 = elem.replace("V: ", "")
+        elif (elem.startswith("S: ")):
+            if (relation2==""):
+                con1 = elem.replace("S: ", "")
+            else:
+                con2 = elem.replace("S: ", "")
+        elif (elem.startswith("SV: ")):
+            if (relation2==""):
+                conVal1 = elem.replace("SV: ", "")
+            else:
+                conVal2 = elem.replace("SV: ", "")'''
+
+# Apakah isFoundPhrase ampuh?
+def createCondition():
+
+    whereAppend = "("
+    objects = []
+    isFirst = True
+    relation1 = ""
+    field1 = ""
+    value1 = ""
+    relation2 = ""
+    field2 = ""
+    value2 = ""
+    con1 = ""
+    con2 = ""
+    conVal1 = ""
+    conVal2 = ""
+    op = ""
+    spatialOp = ""
+    isFoundPhrase = False
+    for idx, elem in enumerate(result["cond"]):
+        if (elem.startswith("O:")):
+            spatialOp = elem.replace("O: ", "")
+        elif (elem.startswith("M:")):
+            op = elem.replace("M: ", "")
+        elif (elem == "<p>"):
+            counter = idx + 1
+            while (counter < len(result["cond"])):
+                node = result["cond"][counter]
+                if (node == '</p>'):
+                    break
+
+                if (not isFoundPhrase):
+                    if (node.startswith("R:")):
+                        relation1 = node.replace("R: ", "")
+                    elif (node.startswith("F:")):
+                        field1 = node.replace("F: ", "")
+                    elif (node.startswith("V:")):
+                        value1 = node.replace("V: ", "")
+                    elif (node.startswith("SR:")):
+                        con1 = node.replace("SR: ", "")
+                    elif (node.startswith("SV:")):
+                        conVal1 = node.replace("SV: ", "")
+                else:
+                    if (node.startswith("R:")):
+                        relation2 = node.replace("R: ", "")
+                    elif (node.startswith("F:")):
+                        field2 = node.replace("F: ", "")
+                    elif (node.startswith("V:")):
+                        value2 = node.replace("V: ", "")
+                    elif (node.startswith("SR:")):
+                        con2 = node.replace("SR: ", "")
+                    elif (node.startswith("SV:")):
+                        conVal2 = node.replace("SV: ", "")
+                
                 counter = counter + 1
 
-            idxField2 = getNthStartingIdxField(counter+1)
+            isFoundPhrase = True
 
-            fld2 = result['fields'][idxField]
-            fld3 = result['fields'][idxField2]
-            rel2, idxTemp = getFromCodeField(idxField, 'fields', 'R: ')
-            val2, idxTemp = getFromCodeField(idxField, 'fields', 'V: ')
-            rel3, idxTemp = getFromCodeField(idxField2, 'fields', 'R: ')
-            val3, idxTemp = getFromCodeField(idxField2, 'fields', 'V: ')
+        elif (elem == "."):
+            isFirst = False
+        elif (elem.startswith("C: ") or elem.startswith("COMMA")):
+            #print("data1", relation1, "  ", field1, "  ", value1, "  ", con1, "  ", conVal1)
+            #print("data2", relation2, "  ", field2, "  ", value2, "  ", con2, "  ", conVal2)
+            r1 = getIndexRelation(relation1, value1, con1, conVal1)
+            r2 = getIndexRelation(relation2, value2, con2, conVal2)
+            if (field1==""):
+                field1 = geoms[relation1][0]
 
-            print("rel2 rel3", rel2, val2, rel3, val3)
-            print("fld2 fld3", fld2, fld3)
-
-            val2 = val2.replace(" ", "")
-            val3 = val3.replace(" ", "")
-
-            param1 = ""
+            param1 = "r" + r1 + "." + field1
             param2 = ""
-            if (fld2 in semantics):
-                if (semantics[fld2]=="circleRadius"):
-                    param1 = "ST_Buffer(r"
-                    relAns, source = getConnectionHasGeom([], rel2)
-                    param1 = param1 + getIndexRelation(relAns, "", rel2, val2)
-                    param1 = param1 + "." + geoms[relAns][0]
-                    param1 = param1 + ", r" + getIndexRelation(rel2, val2)
-                    param1 = param1 + "." +  fld2 + ")"
-            else:
-                if (fld2 in semantics):
-                    if (semantics[fld2]=="circleRadius"):
-                        param2 = "ST_Buffer(r"
-                        relAns, source = getConnectionHasGeom([], rel3)
-                        param2 = param2 + getIndexRelation(relAns, "", rel3, val3)
-                        param2 = param2 + "." + geoms[relAns][0]
-                        param2 = param2 + ", r" + getIndexRelation(rel3, val3)
-                        param2 = param2 + "." +  fld2 + ")"
-
-            query = query + declareFunctions(elem, [param1, param2] )
-            if (isAgg):
-                query = query + "), "
-                isAgg = False
-            else:
-                query = query + ", "
+            if (relation2!=""):
+                if (field2==""):
+                    field2 = geoms[relation2][0]
+                param2 = "r" + r2 + "." + field2
+            #print("params", param1, param2)
+            #print("function", declareFunctions(spatialOp, [param1, param2]))
+            whereAppend = whereAppend + declareFunctions(spatialOp, [param1, param2], geoms[relation1][1], geoms[relation2][1]) + " "
+            if (op!=""):
+                whereAppend = whereAppend + op + " " + num + " "
+            whereAppend = whereAppend + elem.replace("C: ", "") + " "
+            isFirst = True
+            relation1 = ""
+            field1 = ""
+            value1 = ""
+            relation2 = ""
+            field2 = ""
+            value2 = ""
+            con1 = ""
+            con2 = ""
+            conVal1 = ""
+            conVal2 = ""
+            op = ""
+            isFoundPhrase = False
+        elif (elem == '|'):
+            #print("data1", relation1, "  ", field1, "  ", value1, "  ", con1, "  ", conVal1)
+            #print("data2", relation2, "  ", field2, "  ", value2, "  ", con2, "  ", conVal2)
+            r1 = getIndexRelation(relation1, value1, con1, conVal1)
+            r2 = getIndexRelation(relation2, value2, con1, conVal2)
+            if (field1==""):
+                field1 = geoms[relation1][0]
+            
+            param1 = "r" + r1 + "." + field1
+            param2 = ""
+            if (relation2!=""):
+                if (field2==""):
+                    field2 = geoms[relation2][0]
+                param2 = "r" + r2 + "." + field2
+            #print("params", param1, param2)
+            whereAppend = whereAppend + declareFunctions(spatialOp, [param1, param2], geoms[relation1][1], geoms[relation2][1]) + " "
+            if (op!=""):
+                whereAppend = whereAppend + op + " " + num + " "
+            isFirst = True
+            relation1 = ""
+            field1 = ""
+            value1 = ""
+            relation2 = ""
+            field2 = ""
+            value2 = ""
+            con1 = ""
+            con2 = ""
+            conVal1 = ""
+            conVal2 = ""
+            op = ""
+            whereAppend = whereAppend + ") OR ("
+            isFoundPhrase = False
+        elif (elem.startswith("U: ")):
+            print("-")
         else:
-            i = index
-            while (result["fields"][i].startswith('O:')):
-                i = i + 1
-            elem2 = result["fields"][i]
-            elem2 = elem2.replace("G: ", "")
-            founds2 = re.findall("\w+", elem2)
-            rel = founds2[0]
-            val = ""
-            for i in range(1, len(founds2)):
-                val = val + founds2[i]
-            query = query + declareFunctions(elem, ["r"+indices[rel+val]+"."+geoms[rel][0]])
-            if (isAgg):
-                query = query + "), "
-                isAgg = False
-            else:
-                query = query + ", "
-        isFunction = True
+            num = elem
 
-    index = index + 1
-query = query[:-2] + '\n'
+    whereAppend = whereAppend[:-7]
+    whereAppend = whereAppend + ")"
+    return whereAppend
+
+def makeWhereClause():
+
+    query = "WHERE "
+    query = query + createResultIdentifier() + " AND "
+    query = query + createCondition()
+    
+    return query
+
+query = makeWhereClause()
+print("WHERE:", query)
+
+#whereAppend = createResultIdentifier()
+#print(whereAppend)

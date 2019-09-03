@@ -88,22 +88,29 @@ def getGeoms(conn, relations):
         result[table] = cur.fetchall()
         for i in range(0, len(result[table])):
             geoColumns.append(result[table][i][0])
-            cur2 = conn.cursor()
-            cur2.execute(q_7.format(result[table][i][0], table))
-            tipe = cur2.fetchall()
-            cur2.close()
-            cur2 = conn.cursor()
-            cur2.execute(q_8.format(table, result[table][i][0]))
-            srid = cur2.fetchall()[0][0]
-            cur2.close()
             result[table][i] = result[table][i][0]
-            if ("point" in tipe[0][0].lower()):
-                result[table].append("point")
-            elif ("polygon" in tipe[0][0].lower()):
-                result[table].append("polygon")
-            elif ("line" in tipe[0][0].lower()):
-                result[table].append("line")
-            result[table].append(srid)
+
+            if (result[table][i]=="geog"):
+                result[table].append("geog")
+            else:
+                cur2 = conn.cursor()
+                cur2.execute(q_7.format(result[table][i], table))
+                tipe = cur2.fetchall()
+                cur2.close()
+                #cur2 = conn.cursor()
+                #cur2.execute(q_8.format(table, result[table][i][0]))
+                #srid = cur2.fetchall()[0][0]
+                #cur2.close()
+                
+                if ("point" in tipe[0][0].lower()):
+                    result[table].append("point")
+                elif ("polygon" in tipe[0][0].lower()):
+                    result[table].append("polygon")
+                elif ("line" in tipe[0][0].lower()):
+                    result[table].append("line")
+            
+            #result[table].append(srid)
+            
         cur.close()
 
     return result, geoColumns
@@ -127,13 +134,6 @@ def getConnection(conn, relations):
     cur.close()
 
     return connection
-
-'''def getSynonym(text):
-
-    if (text=='waktu'):
-        return ['jam']
-    else:
-        return []'''
 
 def getSynSet(fields):
 
@@ -171,11 +171,13 @@ def getMetadata(database, isLoad):
         outfile = open(filename,'wb')
 
         metadata = { 'values': values, 'geoColumns': geoColumns, 'manyValues': manyValues, 'connection': connection, 'fields': fields, 'attrs': attrs, 'relations': relations, 'geoms': geoms }
+        #metadata = { 'values': ['bandung'], 'geoColumns': [], 'manyValues': [], 'connection': [], 'fields': [], 'attrs': [], 'relations': ['kota'], 'geoms': [] }
         #print(metadata)
 
         pickle.dump(metadata, outfile)
         outfile.close()
 
+        #synSet = []
         filename = 'synset'
         outfile = open(filename,'wb')
         pickle.dump(synSet, outfile)
@@ -191,37 +193,4 @@ def getMetadata(database, isLoad):
         synSet = pickle.load(infile)
         infile.close()
 
-    return metadata, synSet    
-
-metadata = []
-synSet = {'nama': 'nama'}
-#metadata, synSet = getMetadata('sample2', True)
-#print(metadata['connection'])
-'''
-conn = psycopg2.connect(host="localhost", database="sample2", user="postgres", password="1234")
-relations = getRelations(conn)
-fields, result  = getColumns(conn, relations)
-#print(fields)
-#print(result)
-
-#print(result)
-#print(getValues(conn, relations))
-'''
-'''
-cur = conn.cursor()
-cur.execute(q_6)
-hasil = cur.fetchall()
-print(hasil)
-cur.close()
-'''
-
-'''
-connection = getConnection(conn, relations)connection = getConnection(conn, relations)
-print(geoms)
-
-connection = getConnection(conn, relations)
-print(connection)
-
-semantics = {}
-semantics["wifijangkauan"] = "jari-jari lingkaran"
-'''
+    return metadata, synSet

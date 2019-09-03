@@ -23,7 +23,8 @@ def getDefaultAttribute():
 # Daftar Variabel Global
 defAttrs = getDefaultAttribute()
 #print(defAttrs)
-semantics = {'jangkauan': 'circleRadius'}
+semantics = {}
+#semantics = {'jangkauan': 'circleRadius'}
 parameter = {
         "PANJANG": 1,
         "LUAS": 1,
@@ -61,17 +62,6 @@ def isConnected(rel1, rel2):
             return True
 
     return False
-
-'''def addSeparator():
-
-    idxList = []
-    prevRel = ""
-    for idx, rel in enumerate(result["relation"]):
-        if (not isNonFieldinFields(rel)):
-            if (prevRel!=""):
-                if (not isConnected(prevRel, rel)):
-                    idxList.append(idx)
-            prevRel = rel'''
 
 def getIdxDestRel(rel1, rel2):
 
@@ -167,29 +157,7 @@ def getSrcRelation(idxTarget):
                 currentVal = subRelations[i-1].replace("V: ", "")
             break
 
-        '''if (i==len(subRelations)-1):
-            break'''
-        '''if (i==0):
-            currentRel = rel
-            if (result["relation"][i+1].startswith("V:")):
-                currentVal = result["relation"][i+1].replace("V: ", "")
-        if (rel=='|'):
-            currentRel = result["relation"][i+1]
-            if (result["relation"][i+2].startswith("V:")):
-                currentVal = result["relation"][i+2].replace("V: ", "")
-            else:
-                currentVal = ""
-        if (rel==relation):
-            findElmtInArr(result["relation"][i:])'''
-
     return currentRel, currentVal
-
-'''print("testResult")
-print(result["relation"])
-print(result["relation"][:3])
-print(getSrcRelation(2))
-print(getSrcRelation(1))
-print(getSrcRelation(0))'''
 
 #! Kasus multiple relation masih belum ditangani
 def getIndex(keyword):
@@ -217,7 +185,7 @@ def convertToSQL(parsing, metadata, synonyms):
     global geoColumns
     global synSet
 
-    '''relations = metadata["relations"]
+    relations = metadata["relations"]
     fields = metadata["fields"]
     values = metadata["values"]
     manyValues = metadata["manyValues"]
@@ -225,24 +193,13 @@ def convertToSQL(parsing, metadata, synonyms):
     connections["|"] = []
     attrs = metadata["attrs"]
     geoms = metadata["geoms"]
+    print("geoms", geoms)
     geoColumns = metadata["geoColumns"]
-    synSet = synonyms'''
-
-    relations = ['provinsi', 'kota', 'restoran', 'negara', 'area', 'wifi']
-    fields = ['nama', 'alamat', 'franchise', 'posisi', 'populasi']
-    values = ['bandung', 'medan', 'connex', 'indonesia']
-    manyValues = ['jawa barat', 'yagami ramen']
-    connections = {}
-    connections["|"] = []
-    attrs = {'provinsi':['nama', 'geom'], 'kota': ['nama', 'geom', 'populasi'], 'restoran': ['nama', 'geom', 'franchise'], 'posisi': ['posisi'], 'negara': ['nama', 'populasi'], 'wifi': ['nama', 'jangkauan'], 'area': ['nama', 'geom']}
-    geoms = {'provinsi': ['geom', '4326', 'poligon'], 'negara': ['geom', '4326', 'poligon'], 'kota': ['geom', '4326', 'point'], 'restoran': ['geom', '4326', 'point'], 'posisi':['posisi', '4326', 'point'],  'area': ['geom', '4326', 'poligon']}
-    geoColumns = ['geom']
     synSet = synonyms
+    print("connections", connections)
 
-    #print("geomsinit", geoms)
     result = recursiveWalk(parsing[0], result)
     query, headers = translate(result)
-    #print("headers", headers)
     
     return query, headers
 
@@ -416,8 +373,6 @@ def getIndexRelation(relation, value="", srcRelation="", srcValue=""):
             relActive = result["relation"][0]
             if (1 < len(result["relation"]) and result["relation"][1].startswith("V:")):
                 valActive = result["relation"][1].replace("V: ", "")
-        #print("val", val)
-        #print("relActive valActive", relActive, valActive)
         if (val=='|'):
             if (idx+1 < len(result["relation"])):
                 relActive = result["relation"][idx+1]
@@ -1148,6 +1103,139 @@ def makeRectangle(pointList, srid='2163'):
 
     return 'ST_MakeEnvelope(' + point1[0] + ', ' + point1[1] + ', ' + point2[0] + ', ' + point2[1] + ', ' + srid + ')'
 
+def createCondition():
+
+    whereAppend = "("
+    isFirst = True
+    relation1 = ""
+    field1 = ""
+    value1 = ""
+    relation2 = ""
+    field2 = ""
+    value2 = ""
+    con1 = ""
+    con2 = ""
+    conVal1 = ""
+    conVal2 = ""
+    op = ""
+    for elem in result["cond"]:
+        if (elem.startswith("O:")):
+            spatialOp = elem.replace("O: ", "")
+        elif (elem.startswith("M:")):
+            op = elem.replace("M: ", "")
+        elif (elem.startswith("R: ")):
+            if (isFirst):
+                #print("isFirst", isFirst)
+                relation1 = elem.replace("R: ", "")
+            else:
+                relation2 = elem.replace("R: ", "")
+        elif (elem.startswith("F: ")):
+            if (isFirst):
+                field1 = elem.replace("F: ", "")
+            else:
+                field2 = elem.replace("F: ", "")
+        elif (elem.startswith("V: ")):
+            if (isFirst):
+                value1 = elem.replace("V: ", "")
+            else:
+                value2 = elem.replace("V: ", "")
+        elif (elem.startswith("S: ")):
+            if (relation2==""):
+                con1 = elem.replace("S: ", "")
+            else:
+                con2 = elem.replace("S: ", "")
+        elif (elem.startswith("SV: ")):
+            if (relation2==""):
+                conVal1 = elem.replace("SV: ", "")
+            else:
+                conVal2 = elem.replace("SV: ", "")
+        elif (elem == "."):
+            isFirst = False
+        elif (elem.startswith("C: ")):
+            print("data1", relation1, "  ", field1, "  ", value1, "  ", con1, "  ", conVal1)
+            print("data2", relation2, "  ", field2, "  ", value2, "  ", con2, "  ", conVal2)
+            r1 = getIndexRelation(relation1, value1, con1, conVal1)
+            r2 = getIndexRelation(relation2, value2, con2, conVal2)
+            param1 = "r" + r1 + "." + field1
+            param2 = ""
+            if (field2!=""):
+                param2 = "r" + r2 + "." + field2
+            print("params", param1, param2)
+            print("function", declareFunctions(spatialOp, [param1, param2]))
+            whereAppend = whereAppend + declareFunctions(spatialOp, [param1, param2], geoms[relation1][1], geoms[relation2][1]) + " "
+            if (op!=""):
+                whereAppend = whereAppend + op + " " + num + " "
+            whereAppend = whereAppend + elem.replace("C: ", "") + " "
+            isFirst = True
+            relation2 = ""
+            field2 = ""
+            value2 = ""
+            con1 = ""
+            con2 = ""
+            conVal1 = ""
+            conVal2 = ""
+            op = ""
+        elif (elem == '|'):
+            print("data1", relation1, "  ", field1, "  ", value1, "  ", con1, "  ", conVal1)
+            print("data2", relation2, "  ", field2, "  ", value2, "  ", con2, "  ", conVal2)
+            r1 = getIndexRelation(relation1, value1, con1, conVal1)
+            r2 = getIndexRelation(relation2, value2, con1, conVal2)
+            param1 = "r" + r1 + "." + field1
+            param2 = ""
+            if (field2!=""):
+                param2 = "r" + r2 + "." + field2
+            print(param1, param2)
+            whereAppend = whereAppend + declareFunctions(spatialOp, [param1, param2], geoms[relation1][1], geoms[relation2][1]) + " "
+            if (op!=""):
+                whereAppend = whereAppend + op + " " + num + " "
+            isFirst = True
+            relation2 = ""
+            field2 = ""
+            value2 = ""
+            con1 = ""
+            con2 = ""
+            conVal1 = ""
+            conVal2 = ""
+            op = ""
+            whereAppend = whereAppend + ") OR ("
+        elif (elem.startswith("U: ")):
+            print("-")
+        else:
+            num = elem
+
+    whereAppend = whereAppend[:-7]
+    whereAppend = whereAppend + ")"
+    print(whereAppend)
+
+def getDefaultAttribute():
+
+    defAttrs = {}
+
+    f = open("default-attribute.txt", "r")
+    contents = f.readlines()
+    for content in contents:
+        words = content.split(':')
+        defAttrs[words[0].strip()] = words[1].strip()
+
+    return defAttrs
+
+# Daftar Variabel Global
+defAttrs = getDefaultAttribute()
+
+def createResultIdentifier():
+
+    whereAppend = "("
+    for idx, elem in enumerate(result["relation"]):
+        if (idx+1 < len(result["relation"]) and result["relation"][idx+1].startswith("V:")):
+            whereAppend = whereAppend + "lower(r" + getIndexRelation(elem, result["relation"][idx+1].replace("V: ", ""))
+            whereAppend = whereAppend + "." + defAttrs[elem] + ") = '" + result["relation"][idx+1].replace("V: ", "") + "'"
+            whereAppend = whereAppend + " AND "
+    whereAppend = whereAppend[:-5] + ")"
+    return whereAppend
+
+whereAppend = createResultIdentifier()
+print(whereAppend)
+
 def processCond(object1, operation, object2, query):
 
     right = ""
@@ -1369,6 +1457,7 @@ isField = False
 isComma = False
 isRelation = False
 wordList = []
+isFirst = True
 
 def collect(node, result):
 
@@ -1390,17 +1479,28 @@ def collect(node, result):
     # Perhatikan kasus komma di kondisi lain
     global isComma
     global isRelation
+    global isFirst
 
     #print("tes", result)
     
-    if (checkNode(node, "QUERY", "QUERIES","COND", "CONDITION", "FIELDS", "OPERATOR", "GEOCONDS", "GEOCOND", "SPATIALOPS", "WORDS", "WORD")):
+    if (checkNode(node, "QUERY", "QUERIES","COND", "CONDITION", "FIELDS", "OPERATOR", "GEOCONDS", 
+        "GEOCOND", "SPATIALOPS", "WORDS", "WORD", "PHRASES", "PHRASE", "DESCRIPTION", "FPHRASE")):
         #print("dalem checkNode",node.label())
         if (node.label()=="SPATIALOPS"):
             isSpatialOps = True
             #print("isSpatialOps", isSpatialOps)
+        elif (node.label()=="FPHRASE"):
+            if (not isFirst):
+                wordList.append('|')
+            isFirst = False
+        elif (node.label()=="PHRASE"):
+            wordList.append('<P>')
         
         for elmt in node:
             result = collect(elmt, result)
+
+        if (node.label()=="PHRASE"):
+            wordList.append('</P>')
         
         return result
     else:
@@ -1496,10 +1596,10 @@ def collect(node, result):
             result["cond"].append("O: NOT")
             wordList.append(node.label())
 
-        elif (node.label()=="SPATIALOP"):
+        elif (node.label() == "SPATIALOP"):
 
-            spatialOp = node[0].label()
-            wordList.append("O: "+node[0].label())
+            spatialOp = node[0][0].label()
+            wordList.append("O: "+spatialOp)
 
             # len(result["cond"]) == 0 dihilangin
             if (len(result["cond"]) > 0):
@@ -1510,26 +1610,17 @@ def collect(node, result):
                         if (prevNode=="VALUE"):
                             result["cond"].append("V: "+prevValNode)
                             #result["cond"].append("AND")
-                        
-            # Untuk dua kolom bagaimana?
-            # Mungkin bagian ini akan menyebabkan redudansi
-            #elif (prevNode=="SEPARATOR" and prevTwo=="RELATION"):
-                #result["cond"].append("R: "+prevValTwo)
-
-                # KASUS: Tampilkan id titik A dan id titik B jika berjarak kurang dari 5! tidak berlaku
-                # PERHATIKAN: Tampilkan seluruh id jalan "State Route 3" dan id jalan "State Route 2" jika bersinggungan!
-                '''elif (prevTwo=="VALUE"):
-                    if (prevThree=="FIELD"):
-                        result["cond"].append("R: "+prevValFour)
-                    else:
-                        result["cond"].append("R: "+prevValThree)
-                    result["cond"].append("V: "+prevValTwo)'''
 
             #print("colField", isColumn, " ", isField)
             if (isColumn and not isField):
-                result["fields"].append("O: "+node[0].label())
+                result["fields"].append("O: "+spatialOp)
             else:
-                result["cond"].append("O: "+node[0].label())
+                result["cond"].append("O: "+spatialOp)
+
+        elif (node.label().startswith("SPATIALOP")):
+
+            spatialOp = node[0].label()
+            wordList.append("O: "+spatialOp)
 
         elif (node.label()=="SEPARATOR"):
             if (prevNode=="RELATION" and prevTwo!="FIELD"):
@@ -1580,6 +1671,8 @@ def collect(node, result):
         elif (node.label()=="COMMA"):
             isComma = True
             wordList.append(node.label())
+        elif (node.label()=="CONJ"):
+            wordList.append("C: "+node[0].label())
         elif (node.label()=="TIME"):
             if (prevNode=="FIELD"):
                 result["cond"].append("F: "+prevValNode)
@@ -1632,6 +1725,8 @@ def recursiveWalk(cond_node, result):
                     if (relAns!=""):
                         result["relation"].append(relAns)
 
+    print("wordList")
+    print(wordList)
     print("resultBefore", result)
     fixResult()
     #print("whereResult", whereList)
@@ -1717,39 +1812,6 @@ def translate(result):
     isFunction = False
     query = "SELECT DISTINCT "
     index = 1
-    # Sementara cuma query berupa tampilkan clipping dengan tidak ada atribut lain
-    '''if (isPart):
-        rel = getFromCodeInArr(result["fields"], 'R: ')
-        val = getFromCodeInArr(result["fields"], 'V: ')
-        
-        geom1 = "r" + indices[rel+val] + "." + geoms[rel][0]
-        geom2 = ""
-
-        idx = findCode(result["fields"], 'O: OVERLAPS')[0]
-        rel = getFromCodeInArr(result["fields"][idx:], 'R: ')
-        val = getFromCodeInArr(result["fields"][idx:], 'V: ')
-        if (rel==""):
-            #print("elmt right")
-            geom2 = makeRectangle(result["fields"][idx+2:])
-            for elmt in result["fields"][idx+1:]:
-                makeRectangle(result["fields"][:])
-                print(elmt)
-        else:
-            geom2 = "r" + indices[rel+val] + "." + geoms[rel][0]
-
-        query = query + declareFunctions('OVERLAP', [geom1, geom2]) + "\n"
-            # mungkin saja penambahannya duplikat. Tangani itu!!!!
-        if (fld1=="" and val1!=""):
-            query = query + "AND "
-            query = searchValQuery(query, rel1, val1) + " "
-        elif (fld1!="" and val1!=""):
-            query = query + "AND r" + indices[rel1+val1] + "." + fld1 + " = " + val1
-
-        if (fld2=="" and val2!=""):
-            query = query + "AND "
-            query = searchValQuery(query, rel2, val2) + " "
-        elif (fld2!="" and val2!=""):
-            query = query + "AND r" + indices[rel2+val2] + "." + fld2 + " = " + val2'''
 
     # Perhatikan! Ini metode ketemu paling akhir
     '''elif (len(result["fields"])>0):passing = 0'''
@@ -1895,57 +1957,7 @@ def translate(result):
                     relGeom = rel
                 #print("SELECT", rel, val)
                 query = query + declareFunctions(elem, ["r"+getIndexRelation(rel, val)+"."+geoms[relGeom][0]]) + ", "
-                '''while (result["fields"][idx].startswith('O:')):
-                    idx = idx + 1
-                elem2 = result["fields"][idx]
-                elem2 = elem2.replace("G: ", "")
-                founds2 = re.findall("\w+", elem2)
-                rel = founds2[0]
-                val = ""
-                for i in range(1, len(founds2)):
-                    val = val + founds2[idx]
-                query = query + declareFunctions(elem, ["r"+indices[rel+val]+"."+geoms[rel][0]])
-                if (isAgg):
-                    query = query + "), "
-                    isAgg = False
-                else:
-                    query = query + ", "'''
             isFunction = True
-    '''else:
-        # sementara seperti ini dulu
-        # ada kasus tunjukkan titik A dan titik B jika kedua titik bersinggungan!
-        # tunjukkan dua garis yang saling bersinggungan!
-        #print("relation")
-        #print(result["relation"][1])
-        if (len(result["relation"])==1):
-            query = query + "r" + indices[result["relation"][0]] + "." + geoms[result["relation"][0]][0]
-            query = query + '\n'
-    '''
-
-    #! Bagaimana kalau field sama lebih dari 1?
-    '''for field in result["fields"]:
-        if (not field.startswith("V: ") and not field.startswith("R: ")):
-            headers.append(field)'''
-
-    '''query = query + "FROM "
-    activeRel = ""
-    activeVal = ""
-    for i in range(0, len(result["relation"])): #relation in result["relation"]:
-        if (not result["relation"][i].startswith('V:') and not result["relation"][i].startswith('F:') and not result["relation"][i].startswith('N:')):
-            if (i+1 < len(result["relation"])):
-                if (result["relation"][i+1].startswith('V:')):
-                    temp = result["relation"][i+1].replace('V: ','')
-                    temp = temp.replace(' ', '')
-                    query = query + result["relation"][i] + " r" + indices[result["relation"][i]+temp] + ", "
-                elif (result["relation"][i+1].startswith('F:')):
-                    temp = result["relation"][i+1].replace('F: ','')
-                    temp2 = result["relation"][i+2].replace('N: ','')
-                    query = query + result["relation"][i] + " r" + indices[result["relation"][i]+temp+temp2] + ", "
-                else:
-                    query = query + result["relation"][i] + " r" + getIndexRelation(result["relation"]) + ", "
-            else:
-                query = query + result["relation"][i] + " r" + indices[result["relation"][i]] + ", "
-    '''
 
     query = query[:-2] + "\n"
     query = query + "FROM "
@@ -1987,24 +1999,6 @@ def translate(result):
         query = processCond(object1, op, object2, query)
         if (makeAppend()!=""):
             query = query + "AND " + makeAppend()
-        '''counter = 0
-        print("whereList", whereList)
-        for condition in whereList:
-            if (counter == 0):
-                query = query + "AND "
-                condition = condition.replace("R: ", "")
-                query = query + "r" + getIndex(condition) + "."
-            elif (counter == 1):
-                condition = condition.replace("F: ", "")
-                query = query + condition + " = "
-            elif (counter == 2):
-                condition = condition.replace("R: ", "")
-                query = query + "r" + getIndex(condition) + "."
-            elif (counter == 3):
-                condition = condition.replace("F: ", "")
-                query = query + condition + " "
-                counter = -1
-            counter = counter + 1'''
 
         #query = query[:-1]
  
