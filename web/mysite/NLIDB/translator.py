@@ -1490,24 +1490,40 @@ def collect(node, result):
             isSpatialOps = True
             #print("isSpatialOps", isSpatialOps)
         elif (node.label()=="FPHRASE"):
-            if (not isFirst):
+            '''if (not isFirst):
                 wordList.append('|')
-            isFirst = False
+            isFirst = False'''
+            wordList.append("<FP>")
         elif (node.label()=="PHRASE"):
             wordList.append('<P>')
+        elif (node.label()=="PHRASES"):
+            wordList.append('<PP>')
+        elif (node.label()=="FIELDS"):
+            wordList.append('<F>')
         
         for elmt in node:
             result = collect(elmt, result)
 
         if (node.label()=="PHRASE"):
             wordList.append('</P>')
+        elif (node.label()=="FPHRASE"):
+            wordList.append('</FP>')
+        elif (node.label()=="PHRASES"):
+            wordList.append('</PP>')
+        elif (node.label()=="FIELDS"):
+            wordList.append('</F>')
         
         return result
     else:
         #print("luar checkNode",node.label())
         #print("isSpatialOps", isSpatialOps)
         if (node.label()=="FIELD"):
-            wordList.append("F: "+node[0])
+            #! Nanti diubah lagi kalo udh bisa dibuat synSetnya
+            #print("node FIELD", node[0], synSet)
+            if (node[0] in synSet):
+                wordList.append("F: "+synSet[node[0]])
+            else:
+                wordList.append("F: "+node[0])
 
         if (node.label()=="FIELD" and not isRelation):
             if (isColumn):
@@ -1519,7 +1535,12 @@ def collect(node, result):
             if (prevNode=="FIELD"):
                 isField = True
                 result["fields"].append('R: '+node[0])
-            wordList.append("R: "+node[0])
+            
+            #! Nanti diganti kalo pembuatan sinonim sempurna
+            if (node[0] in synSet):
+                wordList.append("R: "+synSet[node[0]])
+            else:
+                wordList.append("R: "+node[0])
         elif (node.label()=="VALUE"):
             val = ""
             if (len(node)>1):
@@ -1599,7 +1620,24 @@ def collect(node, result):
         elif (node.label() == "SPATIALOP"):
 
             spatialOp = node[0][0].label()
-            wordList.append("O: "+spatialOp)
+            prefix = ""
+            if (node[0].label() == "SPATIALOP1"):
+                prefix = "O1: "
+            elif (node[0].label() == "SPATIALOP2"):
+                prefix = "O2: "
+            elif (node[0].label() == "SPATIALOP3"):
+                prefix = "O3: "
+            if (spatialOp=="KOORDINAT1"):
+                print("tes")
+                wordList.append(prefix+"ABSIS1")
+                wordList.append("COMMA")
+                wordList.append(prefix+"ORDINAT1")
+            elif (spatialOp=="KOORDINAT2"):
+                wordList.append(prefix+"ABSIS2")
+                wordList.append("COMMA")
+                wordList.append(prefix+"ORDINAT2")
+            else:
+                wordList.append(prefix+spatialOp)
 
             # len(result["cond"]) == 0 dihilangin
             if (len(result["cond"]) > 0):
@@ -1618,9 +1656,14 @@ def collect(node, result):
                 result["cond"].append("O: "+spatialOp)
 
         elif (node.label().startswith("SPATIALOP")):
-
             spatialOp = node[0].label()
-            wordList.append("O: "+spatialOp)
+
+            if (spatialOp=="KOORDINAT1"):
+                wordList.append("O1: ABSIS1")
+                wordList.append("COMMA")
+                wordList.append("O1: ORDINAT1")
+            else:
+                wordList.append("O1: "+spatialOp)
 
         elif (node.label()=="SEPARATOR"):
             if (prevNode=="RELATION" and prevTwo!="FIELD"):
@@ -1631,17 +1674,17 @@ def collect(node, result):
             #print("masuk!")
             if (len(node)==2):
                 if (node[0].label()=="LESS" and node[1].label()=="EQUAL"):
-                    result["cond"].append("O: <=")
+                    result["cond"].append("OP: <=")
                 elif (node[0].label()=="MORE" and node[1].label()=="EQUAL"):
-                    result["cond"].append("O: >=")
+                    result["cond"].append("OP: >=")
             else:
                 if (node[0].label()=="LESS"):
-                    result["cond"].append("O: <")
+                    wordList.append("OP: <")
                 elif (node[0].label()=="MORE"):
-                    result["cond"].append("O: >")
+                    wordList.append("OP: >")
                 elif (node[0].label()=="EQUAL"):
-                    result["cond"].append("O: =")
-            wordList.append("OP: "+node.label())
+                    wordList.append("OP: =")
+            #wordList.append("OP: "+node[0].label())
         elif (node.label()=="NUMBER"):
             if (prevNode=="FIELD"):
                 result["relation"].append("F: "+prevValNode)
@@ -1651,7 +1694,7 @@ def collect(node, result):
                 result["cond"].append("F: "+prevValNode)
             result["cond"].append(node[0])
             result["cond"].append("AND")
-            wordList.append(node[0])
+            wordList.append("N: "+node[0])
         elif (node.label()=="UNIT"):
             result["cond"][len(result["cond"])-1] = "U: "+node[0].label()
             result["cond"].append("AND")

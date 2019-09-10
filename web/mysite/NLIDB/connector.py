@@ -3,7 +3,7 @@ import pickle
 import copy
 
 q_1 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\' AND (data_type LIKE \'char%\' OR data_type LIKE \'text%\')'
-q_2 = 'SELECT table_name FROM information_schema.tables WHERE table_schema = \'public\' AND table_name <> \'geography_columns\' AND table_name <> \'geometry_columns\' AND table_name <> \'spatial_ref_sys\' AND table_name <> \'raster_columns\' AND table_name <> \'raster_overviews\''
+q_2 = 'SELECT DISTINCT table_name FROM information_schema.tables WHERE table_schema = \'public\' AND table_name <> \'geography_columns\' AND table_name <> \'geometry_columns\' AND table_name <> \'spatial_ref_sys\' AND table_name <> \'raster_columns\' AND table_name <> \'raster_overviews\''
 q_3 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\''
 q_4 = 'SELECT column_name FROM information_schema.columns WHERE table_name = \'{}\' AND data_type = \'USER-DEFINED\''
 q_5 = 'SELECT DISTINCT {} FROM {}'
@@ -47,7 +47,8 @@ def getColumns(conn, relations):
         result[table] = cur.fetchall()
         for i in range(0, len(result[table])):
             result[table][i] = result[table][i][0].lower()
-            columns.append(result[table][i])
+            if (result[table][i] not in columns):
+                columns.append(result[table][i])
         cur.close()
 
     return columns, result
@@ -70,9 +71,11 @@ def getValues(conn, relations):
             for temp in temps:
                 if (temp[0]!=None):
                     if (" " in temp[0]):
-                        manyValues.append(temp[0].lower())
+                        if (temp[0].lower() not in manyValues):
+                            manyValues.append(temp[0].lower())
                     else:
-                        values.append(temp[0].lower())
+                        if (temp[0].lower() not in values):
+                            values.append(temp[0].lower())
             cur2.close()
         cur.close()
     
@@ -102,12 +105,13 @@ def getGeoms(conn, relations):
                 #srid = cur2.fetchall()[0][0]
                 #cur2.close()
                 
-                if ("point" in tipe[0][0].lower()):
-                    result[table].append("point")
-                elif ("polygon" in tipe[0][0].lower()):
-                    result[table].append("polygon")
-                elif ("line" in tipe[0][0].lower()):
-                    result[table].append("line")
+                if (tipe[0][0]!=None):
+                    if ("point" in tipe[0][0].lower()):
+                        result[table].append("point")
+                    elif ("polygon" in tipe[0][0].lower()):
+                        result[table].append("polygon")
+                    elif ("line" in tipe[0][0].lower()):
+                        result[table].append("line")
             
             #result[table].append(srid)
             
@@ -174,10 +178,16 @@ def getMetadata(database, isLoad):
         #metadata = { 'values': ['bandung'], 'geoColumns': [], 'manyValues': [], 'connection': [], 'fields': [], 'attrs': [], 'relations': ['kota'], 'geoms': [] }
         #print(metadata)
 
+        #! Bagian Anotasi
+        metadata['relations'].append('restoran')
+        metadata['relations'].append('mall')
+
         pickle.dump(metadata, outfile)
         outfile.close()
 
         #synSet = []
+        synSet['restoran'] = 'places_of_interest'
+        synSet['mall'] = 'places_of_interest'
         filename = 'synset'
         outfile = open(filename,'wb')
         pickle.dump(synSet, outfile)

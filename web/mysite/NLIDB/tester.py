@@ -1,8 +1,9 @@
 import sys
 sys.path.insert(0, "D:\\My Documents\\Kuliah\\Tugas Akhir\\Experiment\\NLIDBSpasial\\web\\mysite")
+import re
 
-SRID_Params = {'JARAK': 3857, 'PANJANG': 3857, 'LUAS': 3857, 'KELILING': 3857, 'ABSIS': 4326, 'ORDINAT': 4326}
-SRID_Result = {'OVERLAP': 4326}
+SRID_Params = {'JARAK': "3857", 'PANJANG': "3857", 'LUAS': "3857", 'KELILING': "3857", 'ABSIS': "4326", 'ORDINAT': "4326"}
+SRID_Result = {'OVERLAP': "4326"}
 
 parameter = {
         "PANJANG": 1,
@@ -43,19 +44,23 @@ def mapToFunctions(keyword):
     else:
         return 'NOT FOUND'
 
-def declareFunctions(keyword, params, *types):
+def declareFunctions(keyword, params, types):
 
     function = mapToFunctions(keyword)
     query = ''
-    geog = ''
+    geog1 = ''
+    geog2 = ''
 
     if (keyword not in parameter):
         return ''
     elif (parameter[keyword]==1):
         if (types[0]=="geog"):
-            query = function + params[0] + '::geometry'
+            query = function + '(' + params[0] + '::geometry' + ')'
+            if (keyword in SRID_Params):
+                print("tes")
+                query = function + '(ST_Transform(' + params[0] + '::geometry, ' + SRID_Params[keyword] + '))'
         else:
-            query = function + 'ST_Transform(' + params[0] + '::geometry, ' + SRID_Params[params[0]] + ')'
+            query = function + '(ST_Transform(' + params[0] + ', ' + SRID_Params[keyword] + '))'
     elif (parameter[keyword]==2):
         appendResult1 = ""
         appendResult2 = ""
@@ -63,15 +68,19 @@ def declareFunctions(keyword, params, *types):
         appendTransform2 = ""
         if (keyword in SRID_Result):
             appendResult1 = "ST_Transform("
-            appendResult2 = ")"
+            appendResult2 = ", " + SRID_Result[keyword] + ")"
         if (keyword in SRID_Params):
             appendTransform1 = "ST_Transform("
-            appendTransform2 = ")"
-            if (types[0]=='geog'):
-                geog = "::geometry"
+            appendTransform2 = ", " + SRID_Params[keyword] + ")"
+            
+        if (types[0]=='geog'):
+            geog1 = "::geometry"
+        if (types[1]=='geog'):
+            geog2 = "::geometry"
         
-        query = query + appendResult1 + function + '(' + appendTransform1 + params[0] + geog + appendTransform2 + ', ' + appendTransform1 + params[1] + geog + appendTransform2 + ')' + appendResult2
+        query = query + appendResult1 + function + '(' + appendTransform1 + params[0] + geog1 + appendTransform2 + ', ' + appendTransform1 + params[1] + geog2 + appendTransform2 + ')' + appendResult2
 
+    #print("query", query)
     return query
 
 # ["O: IN", "F: posisi", "R: posisi", "S: wifi", "SV: connex", ".", "F: geom", "R: area", "V: yagami ramen", 
@@ -99,12 +108,23 @@ locator = {}
 result["cond"] = []
 result["fields"] = []
 result["relation"] = []
-connections = {'jalan': [], 'area': [], 'wifi': ['id', 'posisi_wifi', 'id_wifi'], 'posisi_wifi': ['id_wifi', 'wifi', 'id'], '|': []}
-#wordList = ['O: JARAK1', '<P>', 'F: posisi', 'R: wifi', 'V: connex', '</P>', '<P>', 'F: posisi', 'R: wifi', 'V: yagami ramen', '</P>']
-wordList = ['R: provinsi', 'SEPARATOR', 'O:2 MEETS', '<p>', 'R: provinsi', 'V: jawa barat', '</p>', "C: AND", 'O:2 MEETS', '<p>', 'R: provinsi', 'V: jawa timur', '</p>', '|']
-geoms = {'jalan': ['geom', 'line', 4326], 'area': ['geom', 'polygon', 4326], 'wifi': ['jangkauan', 'polygon', 4326], 
-        'posisi': ['posisi', 'point', 4326], 'provinsi': ['geog', 'geog']}
+synSet = {'places_of_interest': 'places_of_interest', 'restoran': 'places_of_interest', 'wifi': 'wifi'}
+connections = {'jalan': [], 'area': [], 'places_of_interest': [], 'wifi': ['id', 'posisi_wifi', 'id_wifi'], 'posisi_wifi': ['id_wifi', 'wifi', 'id'], 'kabupaten': ['id_provinsi', 'provinsi', 'gid'], 'provinsi': ['gid', 'kabupaten', 'id_provinsi'], '|': []}
+#wordList = ['<FP>', 'O1: JARAK1', '<P>', 'R: provinsi', 'V: jawa barat', '</P>', '<P>', 'R: provinsi', 'V: jawa timur', '</P>', 'U: KM', '</FP>']
+#wordList = ['<FP>', 'R: wifi', '</FP>', 'SEPARATOR', '<PP>', '<P>', 'O2: JARAK2', 'OP: <', 'N: 600', 'U: M', '<P>', 'R: jalan', 'V: ir. h. juanda', '</P>', '</P>', '</PP>']
+#wordList = ['<FP>', 'R: kabupaten', '</FP>', 'SEPARATOR', '<PP>', '<P>', 'O3: OVERLAPS', '<P>', 'R: provinsi', 'V: jawa barat', '</P>', '</P>', '</PP>']
+#wordList = ['<FP>', 'R: jalan', '</FP>', 'SEPARATOR', '<PP>', '<P>', 'O3: OVERLAPS', '<P>', 'R: provinsi', 'V: jawa barat', '</P>', '</P>', '</PP>']
+wordList = ['<FP>', 'O1: PANJANG1', '<P>', 'R: jalan', 'V: ir. h. juanda', '</P>', 'U: MIL', '</FP>']
+#wordList = ['<FP>', 'PART', 'R: places_of_interest', 'V: yagami ramen', '</FP>', 'SEPARATOR', '<PP>', '<P>', 'O3: OVERLAPS', '<P>', 'F: jangkauan', 'R: wifi', 'V: connex', '</P>', '</P>', '</PP>']
+wordList = ['<FP>', '<F>', 'F: nama', '</F>', 'R: wifi', '</FP>', 'SEPARATOR', '<PP>', '<P>', 'O1: ABSIS1', 'COMMA', 'O1: ORDINAT1', 'G: (107,61;-6,88)', '</P>', '</PP>']
+#wordList = ['<FP>', '<F>', 'F: nama', 'COMMA', '<F>', 'O1: ABSIS1', 'COMMA', 'O1: ORDINAT1', 'COMMA', 'C: AND', '<F>', 'O1: LUAS1', 'F: jangkauan', '</F>', '</F>', '</F>', 'R: wifi', '</FP>', 'SEPARATOR', '<PP>', '<P>', 'O3: OVERLAPS', '<P>', 'R: places_of_interest', 'V: metropolitan bekasi', '</P>', '</P>', '</PP>']
+#wordList = ['<FP>', '<F>', 'F: nama', 'COMMA', '<F>', 'O: LUAS1', 'COMMA', 'C: AND', '<F>', 'F: ibukota', '</F>', '</F>', '</F>', 'R: provinsi', '</FP>', 'SEPARATOR', '<PP>', '<P>', 'O2: MEETS', '<P>', 'R: provinsi', 'V: jawa barat', '</P>', '</P>', 'C: AND', '<PP>', '<P>', 'O1: LUAS1', 'OP: <', 'N: 10000', 'U: KM2', '</P>', '</PP>', '</PP>']
+#wordList = []
+#wordList = ['R: provinsi', 'SEPARATOR', 'O:2 MEETS', '<p>', 'R: provinsi', 'V: jawa barat', '</p>', "C: AND", 'O:2 MEETS', '<p>', 'R: provinsi', 'V: jawa timur', '</p>', '|']
+geoms = {'jalan': ['geom', 'line'], 'area': ['geom', 'polygon'], 'wifi': ['posisi', 'point', 'jangkauan', 'polygon'], 
+        'posisi': ['posisi', 'point'], 'provinsi': ['geog', 'geog'], 'kabupaten': ['geog', 'geog'], 'places_of_interest': ['geom', 'polygon']}
 
+#! Jangan lupa default geom
 #S Sementara pake brute force
 def getNthPhrase(n):
 
@@ -148,10 +168,10 @@ def addRightRelations():
 
     idxStarts, temp = getCodes(wordList, '<P>')
     idxEnds, temp = getCodes(wordList, '</P>')
-    print("fields")
+    #print("fields")
     for idx, elem in enumerate(idxStarts):
         fields = getFields(wordList[elem:idxEnds[idx]])
-        print(fields)
+        #print(fields)
     '''counter = 1
     iter = getNthPhrase(counter)
     while (iter != -1):
@@ -179,7 +199,7 @@ def isConnected(rel1, rel2):
     return False
 
 #! Bisa dioptimasi menjadi sudah ada silsilahnya terlebih dahulu
-traversed = []
+'''traversed = []
 def getConnection(srcRel, destRel):
 
     global traversed
@@ -193,7 +213,7 @@ def getConnection(srcRel, destRel):
                 hasil = hasil + getConnection(connections[srcRel][idx], destRel)
             traversed.append(srcRel)
 
-    return hasil
+    return hasil'''
 
 addRightRelations()
 
@@ -204,12 +224,9 @@ print("getPhasesEnd", getCodes(wordList, '</P>'))'''
 print("getNthPhrase", getNthPhrase(2))
 print("getNthPhrase", getNthPhrase(3))'''
 
-'''def fixResult():
-    for '''
-
 def getIndexRelation(relation, value="", srcRelation="", srcValue=""):
 
-    print(relation, value, srcRelation, srcValue)
+    #print(relation, value, srcRelation, srcValue)
 
     counter = 0
     relActive = ""
@@ -298,14 +315,14 @@ def makeResultRelation():
             if (wordList[idx+1].startswith("V:")):
                 addRelVal(elem.replace("R: ", ""), wordList[idx+1])
             else:
-                print("tes")
+                #print("tes")
                 addRelation(elem.replace("R: ", ""))
 
 makeResultRelation()
-print("relations", result["relation"])
+#print("relations", result["relation"])
 
 # Bagaimana membuat srcRel dan srcVal?
-def makeResultCond():
+'''def makeResultCond():
 
     isCond = False
     rel = ""
@@ -354,18 +371,296 @@ def makeResultCond():
             result["cond"].append('|')
             isCond = False
 
-makeResultCond()
-print("cond", result["cond"])
+makeResultCond()'''
+
+#! Ingat FIELD-VALUE MASIH BELUM KOMPLIT
+#! Operator field biasa bagaimana?
+#! Bagaimana kalo lebih dari satu DESCRIPTION
+def makeResultCond():
+
+    isCond = False
+    isPhrase = False
+    isPart = False
+    isSpatialOp = False
+    isFields = False
+    isSelectPhrase = False
+    temp = {}
+    paramRel = ""
+    paramVal = ""
+    relation = ""
+    value = ""
+
+    for elem in wordList:
+
+        if (isFields):
+
+            if (not isSelectPhrase):
+                if (elem.startswith("R:")):
+                    relation = elem.replace("R: ", "")
+                elif (elem.startswith("V:")):
+                    value = elem.replace("V: ", "")
+
+            if (elem == "PART"):
+                isPart = True
+            elif (elem == "<P>"):
+                isSelectPhrase = True
+            elif (elem == "</P>"):
+                isSelectPhrase = False
+
+        elif (isCond):
+            if (isPhrase):
+                if (elem.startswith("O2: ") or elem.startswith("O1: ") or (elem.startswith("O3: ") and not isPart)):
+                    isSpatialOp = True
+
+                    temp = {"sp": "", "params": [], "unit": "M", "types": []}
+
+                    if (elem.startswith("O2:") or elem.startswith("O3: ")):
+                        indeks = getIndexRelation(relation, value)
+                        params = "r" + indeks + "." + geoms[relation][0]
+                        temp["params"].append(params)
+                        temp["types"].append(geoms[relation][1])
+
+                    op = elem.replace("1", "").replace("2", "").replace("3", "").replace("O: ", "")
+                    temp["sp"] = op
+
+                    if (op == "LUAS"):
+                        temp["unit"] = "M2"
+
+                elif (elem.startswith("R: ")):
+
+                    rel = elem.replace("R: ", "")
+                    if (isSpatialOp):
+                        paramRel = rel
+
+                elif (elem.startswith("V: ")):
+
+                    val = elem.replace("V: ", "")
+                    if (isSpatialOp):
+                        paramVal = val
+
+                elif (elem.startswith("OP:")):
+
+                    if (isSpatialOp):
+                        temp["op"] = elem.replace("OP: ", "")
+                elif (elem.startswith("N:")):
+
+                    if (isSpatialOp):
+                        temp["num"] = elem.replace("N: ", "")
+                elif (elem.startswith("U:")):
+                    temp["unit"] = elem.replace("U: ", "")
+
+            if (elem.startswith("G:")):
+                #! Tangani juga untuk koordinat yang ","
+                coor = re.compile('/d+;/d+')
+                points = coor.findall(elem)
+                result["cond"][len(result["cond"])-1]["num"] = points[0]
+                result["cond"][len(result["cond"])-1]["op"] = "="
+                result["cond"][len(result["cond"])-2]["num"] = points[1]
+                result["cond"][len(result["cond"])-2]["op"] = "="
+            elif (elem=="<P>"):
+                isPhrase = True
+            elif (elem=="</P>"):
+                #! Jangan lupa cek parameter!
+                if (isSpatialOp):
+                    indeks = getIndexRelation(paramRel, paramVal)
+                    params = "r" + indeks + "." + geoms[paramRel][0]
+                    temp["params"].append(params)
+                    print("type", geoms[paramRel][1])
+                    temp["types"].append(geoms[paramRel][1])
+                    result["cond"].append(temp)
+                isSpatialOp = False
+                isPhrase = False
+
+        if (elem=="<PP>"):
+            isCond = True
+        elif (elem=="</PP>"):
+            isCond = False
+        elif (elem=="<FP>"):
+            isFields = True
+            relation = ""
+            value = ""
+        elif (elem=="</FP>"):
+            isFields = False
+
+'''makeResultCond()
+print("cond", result["cond"])'''
 
 # Belum menangani field yang tidak ada di relation
 # Apa yang terjadi kalo query berupa relation value di FPHRASE
+# Bagaimana dengan field yang termasuk geometri?
 def makeResultFields():
+
+    isFields = False
+    relation = ""
+    field = ""
+    value = ""
+    isPart = False
+    isParam = False
+    isSpatialOp = False
+    isCol = False
+    paramRel = ""
+    paramVal = ""
+    isThereFields = False
+    temp = {}
+    isForOverlap = False
+    prevNode = ""
+    #print("wordList", wordList)
+    for idx, elem in enumerate(wordList):
+
+        if (elem == "<FP>"):
+            isFields = True
+            relation = ""
+            value = ""
+        elif (elem == "</FP>"):
+            isFields = False
+
+            # Pemasukan nilai relasi
+            for idxFld, fld in enumerate(result["fields"]):
+                if ("col" in fld):
+                    isThereFields = True
+                    indeks = getIndexRelation(relation, value)
+                    result["fields"][idxFld]["col"] = "r" + indeks + "." + result["fields"][idxFld]["col"]
+                elif ("sp" in fld):
+                    indeks = getIndexRelation(relation, value)
+                    if (len(result["fields"][idxFld]["params"])==0):
+                        indeks = getIndexRelation(relation, value)
+                        result["fields"][idxFld]["params"].append("r" + indeks + "." + geoms[relation][0])
+                        result["fields"][idxFld]["types"].append(geoms[relation][1])
+                    #! Bagaimana dengan kasus field ada di relasi lain?
+                    elif (result["fields"][idxFld]["params"][0].startswith("XXX")):
+                        indeks = getIndexRelation(relation, value)
+                        geoms[relation]
+                        fld = result["fields"][idxFld]["params"][0].replace("XXX ", "")
+                        result["fields"][idxFld]["params"][0] = "r" + indeks + "." + fld
+                        idxGeom = 0
+                        for idx in range(0, len(geoms[relation]), 2):
+                            if (geoms[relation][idx]==fld):
+                                idxGeom = idx
+                                break
+                        result["fields"][idxFld]["types"].append(geoms[relation][idxGeom+1])
+            
+            if (not isThereFields and not isSpatialOp and not isPart):
+                temp = {"geom": "", "type": ""}
+                indeks = getIndexRelation(relation, value)
+                #print("relation", relation)
+                temp["type"] = geoms[relation][1]
+                temp["geom"] = "r" + indeks + "." + geoms[relation][0]
+                result["fields"].append(temp)
+
+        elif (elem == "PART"):
+            isPart = True
+
+        elif (elem == '<F>'):
+            isCol = True
+        elif (elem == '</F>'):
+            isCol = False
+
+        if (isFields):
+            if (elem == "<P>"):
+                isParam = True
+            elif (elem == "</P>"):
+                isParam = False
+                indeks = getIndexRelation(paramRel, paramVal)
+                params = "r" + indeks + "." + geoms[paramRel][0]
+                #print(result["fields"][len(result["fields"])-1])
+                #print(result["fields"])
+                result["fields"][len(result["fields"])-1]["params"].append(params)
+                result["fields"][len(result["fields"])-1]["types"].append(geoms[paramRel][1])
+                paramRel = ""
+                paramVal = ""
+            
+                # Masih belum ada untuk srcRelation dan srcVal
+                '''fld = geoms[paramRel][0]
+                indeks = getIndexRelation(paramRel, paramVal)
+                params = "r" + indeks + "." + fld
+                temp["params"].append(params)
+                temp["types"].append(geoms[paramRel][1])
+                
+                paramRel = ""
+                paramVal = ""'''
+
+        #print("bool", isFields, isParam)
+        #print("elem", elem)
+        if (isFields and not isParam):
+            #print("test")
+            if (elem.startswith("O1:")):
+                isSpatialOp = True
+                temp = {"sp" : "", "params": [], "types": [], "unit": "M"}
+
+                spatialOp = elem.replace("1", "").replace("2", "").replace("3", "").replace("O: ", "")
+
+                if (spatialOp=="LUAS"):
+                    temp["unit"] = "M2"
+
+                temp["sp"] = spatialOp
+                result["fields"].append(temp)
+            elif (elem.startswith("R:")):
+                #print("relation")
+                relation = elem.replace("R: ", "")
+            elif (elem.startswith("U:")):
+                temp["unit"] = elem.replace("U: ", "")
+            elif (elem.startswith("V:")):
+                value = elem.replace("V: ", "")
+            elif (elem.startswith("F:")):
+                if (prevNode.replace("1", "").replace("2", "").replace("3", "").startswith("O:")):
+                    result["fields"][len(result["fields"])-1]["params"].append("XXX "+elem.replace("F: ", ""))
+                elif (isCol):
+                    temp = {"col" : "", "relation": ""}
+                    temp["col"] = elem.replace("F: ", "")
+                    result["fields"].append(temp)
+        elif (isFields and isParam):
+            if (elem.startswith("R:")):
+                paramRel = elem.replace("R: ", "")
+            elif (elem.startswith("V:")):
+                paramVal = elem.replace("V: ", "")
+
+        if (not isFields):
+            if (elem == "<P>"):
+                isParam = True
+            elif (elem == "</P>"):
+                isParam = False
+                if (isPart):
+                    #print("temp", temp)
+                    indeks = getIndexRelation(relation, value)
+                    temp["params"].append("r" + indeks + "." + geoms[relation][0])
+                    temp["types"].append(geoms[relation][1])
+                    result["fields"].append(temp)
+                    isPart = False
+
+            if (elem.startswith("O3:")):
+                if (isPart):
+                    temp = {"sp" : "", "params": [], "types": [], "unit": "M"}
+                    temp["sp"] = "OVERLAP"
+                    indeks = getIndexRelation(relation, value)
+                    temp["params"].append("r" + indeks + "." + geoms[relation][0])
+                    temp["types"].append(geoms[relation][1])
+                    #result["fields"].append(temp)
+                    
+            # Diasumsikan relasi dan value
+            elif (isParam and elem.startswith("R:")):
+                relation = elem.replace("R: ", "")
+            elif (isParam and elem.startswith("V:")):
+                value = elem.replace("V: ", "")
+
+        prevNode = elem
+
+makeResultFields()
+print("fields", result["fields"])
+makeResultCond()
+print("cond", result["cond"])
+
+
+'''def makeResultFields():
 
     isFields = True
     isThereFields = False
     counter = 0
     idxList = []
     for idx, elem in enumerate(wordList):
+
+        if (elem == "<FP>"):
+        elif (elem == "</FP>"):
+        elif (elem == "OVERLAPS"):
 
         if (elem=="SEPARATOR"):
             isFields = False
@@ -399,14 +694,18 @@ def makeResultFields():
                     result["fields"].append(elem)
                 else:
                     counter = counter - 1
-            counter = counter + 1
+            counter = counter + 1'''
 
 
-makeResultFields()
-print(result["fields"])
-print(locator)
+#makeResultFields()
+#print(result["fields"])
+#print(locator)
 
-def makeSelectClause():
+#def traverseTree():
+
+
+
+'''def makeSelectClause():
     
     query = "SELECT "
     for idx, elem in enumerate(result["fields"]):
@@ -430,6 +729,68 @@ def makeSelectClause():
 
     query = query[:-2]
 
+    return query'''
+
+#! Tes dari mil ke meter
+def displacement(fromUnit, toUnit):
+
+    basicUnit = ["KM", "HM", "DAM", "M", "DM", "CM", "MM"]
+    otherUnit = {"MIL": 0.00062}
+    areaUnit = ["KM2", "HM2", "DAM2", "M2", "DM2", "CM2", "MM2"]
+    calc = 1
+
+    if (fromUnit in basicUnit and toUnit in basicUnit):
+        idxF = basicUnit.index(fromUnit)
+        idxT = basicUnit.index(toUnit)
+        calc = pow(10, idxT-idxF)
+    elif (fromUnit in otherUnit):
+        idxF = basicUnit.index("M")
+        idxT = basicUnit.index(toUnit)
+        calc = pow(10, idxT-idxF)*otherUnit[fromUnit]
+    elif (toUnit in otherUnit):
+        calc = otherUnit[toUnit]
+    else:
+        idxF = areaUnit.index(fromUnit)
+        idxT = areaUnit.index(toUnit)
+        calc = pow(10, (idxT-idxF)*2)
+
+    return calc
+
+def convert(value, fromUnit, toUnit):
+
+    return str(value*displacement(fromUnit, toUnit))
+
+def makeSelectClause():
+    
+    query = "SELECT "
+    for elem in result["fields"]:
+        if ('sp' in elem):
+            #print(elem['types'])
+            geoJson1 = "" 
+            geoJson2 = ""
+            if (elem['sp']=='OVERLAP'):
+                geoJson1 = "ST_AsGeoJSON("
+                geoJson2 = ")"
+            if (elem["unit"]!="M" and elem["unit"]!="M2"):
+                if (elem["unit"]):
+                    query = query + declareFunctions(elem['sp'], elem['params'], elem['types']) + "*" + convert(1, "M", elem["unit"])
+                elif ("2" in elem["unit"]):
+                    query = query + declareFunctions(elem['sp'], elem['params'], elem['types']) + "*" + convert(1, "M2", elem["unit"])
+            else:
+                query = query + geoJson1 + declareFunctions(elem['sp'], elem['params'], elem['types']) + geoJson2
+        elif ('geom' in elem):
+            if (elem['type']=="geog"):
+                query = query + 'ST_AsGeoJSON(' + elem['geom'] + ')'
+            else:
+                query = query + 'ST_AsGeoJSON(' + 'ST_Transform(' + elem['geom'] + ', 4326)' + ')'
+        elif ('col' in elem):
+            #indeks = getIndexRelation(elem['rel'])
+            query = query + elem['col']
+
+        query = query + ', '
+
+    query = query[:-2]
+
     return query
 
 query = makeSelectClause()
@@ -448,7 +809,7 @@ def makeFromClause():
     return query
 
 query = makeFromClause()
-print("FROM:", query)
+#print("FROM:", query)
 
 def createResultIdentifier():
 
@@ -460,6 +821,8 @@ def createResultIdentifier():
             whereAppend = whereAppend + " AND "
     whereAppend = whereAppend[:-5] + ")"
     return whereAppend
+
+#print("FIELD-VALUE", createResultIdentifier())
 
 '''elif (elem.startswith("R: ")):
             if (isFirst):
@@ -488,8 +851,29 @@ def createResultIdentifier():
             else:
                 conVal2 = elem.replace("SV: ", "")'''
 
-# Apakah isFoundPhrase ampuh?
 def createCondition():
+
+    whereAppend = "("
+
+    for idx, elem in enumerate(result["cond"]):
+
+        if ("sp" in elem and "op" in elem):
+            whereAppend = whereAppend + declareFunctions(elem["sp"], elem["params"], elem["types"])
+            if ("2" in elem["unit"]):
+                num = convert(int(elem["num"]), elem["unit"], "M2")
+            else:
+                num = convert(int(elem["num"]),  elem["unit"], "M")
+            whereAppend = whereAppend + " " + elem["op"] + " " + num
+        elif ("sp" in elem):
+            whereAppend = whereAppend + declareFunctions(elem["sp"], elem["params"], elem["types"])
+
+        whereAppend = whereAppend + " AND "
+
+    whereAppend = whereAppend[:-5] + ")"
+    return whereAppend
+
+# Apakah isFoundPhrase ampuh?
+'''def createCondition():
 
     whereAppend = "("
     objects = []
@@ -620,13 +1004,47 @@ def createCondition():
 
     whereAppend = whereAppend[:-7]
     whereAppend = whereAppend + ")"
-    return whereAppend
+    return whereAppend'''
+
+#print(getConnection('kabupaten', 'provinsi'))
+
+#! Kasus Kabupaten Provinsi Kabupaten Provinsi dan perhatikan kasus lainnya
+def makeJoinCondition():
+
+    prevRelation = ""
+    relation = ""
+    appendWhere = "("
+    counter = 1
+    for elem in result["relation"]:
+        if (not elem.startswith("V:") and elem != '|'):
+            prevRelation = relation
+            relation = elem.replace("R: ", "")
+            if (prevRelation != ''):
+                if (isConnected(prevRelation, relation)):
+                    appendWhere = appendWhere + "r" + str(counter-1) + "." + connections[prevRelation][0]
+                    appendWhere = appendWhere + " = r" + str(counter) + "." + connections[relation][0]
+                    appendWhere = appendWhere + " AND "
+            counter = counter + 1
+
+    appendWhere = appendWhere[:-5]
+    appendWhere = appendWhere + ")"
+
+    return appendWhere
+
+#print("join", makeJoinCondition())
 
 def makeWhereClause():
 
     query = "WHERE "
-    query = query + createResultIdentifier() + " AND "
-    query = query + createCondition()
+    query = query + createResultIdentifier()
+    temp = makeJoinCondition()
+    if (temp!=")"):
+        query = query + " AND "
+        query = query + temp
+    temp = createCondition()
+    if (temp!=")"):
+        query = query + " AND "
+        query = query + temp
     
     return query
 

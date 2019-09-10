@@ -3,3 +3,4 @@ wifi : nama
 jalan : nama
 provinsi: nama
 kota: nama
+places_of_interest: nama

@@ -64,11 +64,16 @@ def preprocessing(sentence):
     # Ubah menjadi lowercase
     sentence = sentence.lower()
 
-    extractor = re.compile(r'\(\s*\d+\s*,\s*\d+\s*\)')
+    extractor = re.compile(r"\(-?\d+,\d+ ?; ?\d+,\d+ ?\)|\(\d+ ?, ?\d+ ?\)")
     keepList = extractor.findall(sentence)
-    for keep in keepList:
+    
+    for idx, keep in enumerate(keepList):
+        sentence = sentence.replace(keep, "coor"+str(idx))
+        keepList[idx] = keepList[idx].replace(" ", "")
+    #print("keepList", keepList)
+    '''for keep in keepList:
         temp = keep.replace(',', ':')
-        sentence = sentence.replace(keep, temp)
+        sentence = sentence.replace(keep, temp)'''
 
     extractor = re.compile(r'(\d+[\.|\:]\d+)')
     timeList = extractor.findall(sentence)
@@ -80,6 +85,7 @@ def preprocessing(sentence):
 
     sentence = sentence.replace(',', ' xyz')
     sentence = sentence.replace('tersebut', 'tersebutxyz')
+    sentence = sentence.replace('bekasi', 'bekasixyz')
     sentence = sentence.replace('berjarak', 'berjarakxyz')
     sentence = sentence.replace('jaraknya', 'jaraknyaxyz')
     #sentence = sentence.replace('bersebelahan', 'bersebelahanxyz')
@@ -122,6 +128,7 @@ def preprocessing(sentence):
     output = output.replace(' xyz', ' ,')
     output = output.replace('tersebutxyz', 'tersebut')
     output = output.replace('berjarakxyz', 'berjarak')
+    output = output.replace('bekasixyz', 'bekasi')
     output = output.replace('jaraknyaxyz', 'jaraknya')
     #output = output.replace('bersebelahanxyz', 'bersebelahan')
     output = output.replace('irisanabc', 'irisan')
@@ -132,6 +139,9 @@ def preprocessing(sentence):
     output = output.replace('bagianxyz', 'bagian')
     output = output.replace('ada di belah', 'di belah')
     #print("Hasil remove: "+output)
+
+    for idx, keep in enumerate(keepList):
+        output = output.replace("coor"+str(idx), keep)
 
     return output
 
@@ -172,7 +182,6 @@ def parse(sentence, metadata):
     attrs = metadata["attrs"]
 
     numbers = set([match.group(0) for match in re.finditer(r"\d+", sentence)])
-    coordinates = set([match.group(0) for match in re.finditer(r"\(\d+,\d+\)", sentence)])
     times = set([match.group(0) for match in re.finditer(r"\d+(\.|\:)\d+", sentence)])
 
     # Node Operator
@@ -203,17 +212,17 @@ def parse(sentence, metadata):
     temp = """
     ABSIS -> 'absis'
     ORDINAT -> 'ordinat'
-    KOORDINAT -> 'koordinat'
+    KOORDINAT1 -> 'koordinat'
+    KOORDINAT2 -> 'berkoordinat'
     JARAK1 -> 'jarak'
     JARAK2 -> 'berjarak' | 'jaraknya'
-    IN -> 'dalam' | 'pada' | 'ada' 'di'
     OUTSIDE -> 'luar'
     PANJANG1 -> 'panjang'
     PANJANG2 -> 'panjangnya'
     LUAS1 -> 'luas'
     LUAS2 -> 'berluas' | 'luasnya'
     KELILING -> 'keliling'
-    OVERLAPS -> 'iris' | 'singgung' | 'kena' | 'jangkau'
+    OVERLAPS -> 'iris' | 'singgung' | 'kena' | 'jangkau' | 'ada' 'di' | 'lewat' | 'ada' 'pada'
     OVERLAP -> 'irisan'
     MEETS -> 'di' 'samping' | 'belah' | 'di' 'belah'
     PART -> 'bagian' | 'daerah'
@@ -222,7 +231,6 @@ def parse(sentence, metadata):
 
     # Node Satuan
     temp = """
-    UNITDESC -> 'dalam' 'satuan' | 'dalam'
     KM -> 'kilometer' | 'km'
     M -> 'meter' | 'm'
     MIL -> 'mil'
@@ -256,14 +264,16 @@ def parse(sentence, metadata):
     S -> WORDS
     WORDS -> WORD WORDS | WORD  
     WORD -> SIDE | LENGTH | WIDTH | LU | RB | PUSAT | SQUARE | RECTANGLE | COMMAND
-    WORD -> MIL | M | KM | M2 | KM2 | LESS | MORE | EQUAL | NOT | AND | OR | SEPARATOR | COMMA| DET
-    WORD -> ABSIS | ORDINAT | KOORDINAT | JARAK1 | JARAK2 | IN | WITHIN | OUTSIDE | PANJANG1 | PANJANG2
+    WORD -> MIL | M | KM | M2 | KM2 | LESS | MORE | EQUAL | NOT | AND | OR | SEPARATOR 
+    WORD -> ABSIS1 | ORDINAT | KOORDINAT1 | ABSIS2 | ORDINAT2 | KOORDINAT2 | JARAK1
+    WORD -> WITHIN | OUTSIDE | PANJANG1 | PANJANG2 | COMMA | DET | JARAK2 | IN
     WORD -> LUAS1 | LUAS2 | KELILING | OVERLAP | OVERLAPS | MEETS | FIELD | RELATION | VALUE
     WORD -> NUMBER | TIME | COOR | COUNT | MAX | MIN | SUM | PART | UNITDESC | REMOVES
     """
 
     print("\nPreprocessing kalimat...")
     sentence = preprocessing(sentence)
+    coordinates = set([match.group(0) for match in re.finditer(r"\(-?\d+,\d+ ?; ?\d+,\d+ ?\)|\(\d+ ?, ?\d+ ?\)", sentence)])
     print("preprocessing", sentence)
 
     removes = set([match.group(0) for match in re.finditer(r"\w+\.|\w+", sentence)])
@@ -369,13 +379,13 @@ def parse(sentence, metadata):
     S -> QUERY
     QUERY -> COMMAND DESCRIPTION
     DESCRIPTION -> FPHRASE SEPARATOR PHRASES COMMA DESCRIPTION | FPHRASE SEPARATOR PHRASES CONJ DESCRIPTION | FPHRASE SEPARATOR PHRASES COMMA CONJ DESCRIPTION | FPHRASE CONJ DESCRIPTION | FPHRASE COMMA DESCRIPTION | FPHRASE COMMA CONJ DESCRIPTION | FPHRASE SEPARATOR PHRASES | FPHRASE
-    FIELDS -> FIELD | SPATIALOP1 | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS | SPATIALOP1 CONJ FIELDS | SPATIALOP1 COMMA FIELDS | SPATIALOP1 COMMA CONJ FIELDS
+    FIELDS -> FIELD | SPATIALOP1 | SPATIALOP1 FIELD | FIELD CONJ FIELDS | FIELD COMMA CONJ FIELDS | FIELD COMMA FIELDS | SPATIALOP1 CONJ FIELDS | SPATIALOP1 COMMA FIELDS | SPATIALOP1 COMMA CONJ FIELDS | SPATIALOP1 FIELD CONJ FIELDS | SPATIALOP1 FIELD COMMA FIELDS | SPATIALOP1 FIELD COMMA CONJ FIELDS
     VALUES -> VALUE CONJ VALUE | VALUE COMMA VALUE | VALUE VALUES | VALUE
     PHRASES -> PHRASE CONJ PHRASES | PHRASE COMMA PHRASES | PHRASE COMMA CONJ PHRASES | PHRASE
     GEOCONDS -> GEOCOND COMMA GEOCONDS | GEOCOND CONJ COMMA GEOCOND | GEOCOND
     GEOCOND -> GEOMETRY POINT COOR CONJ POINT COOR | GEOMETRY POINT COOR SIZE NUMBER | POINT COOR OPERATOR
-    FPHRASE -> RELATION | FIELDS RELATION | FIELDS RELATION VALUE | RELATION FIELD VALUE | RELATION VALUE | SPATIALOP1 PHRASE PHRASE | SPATIALOP1 PHRASE | VALUE
-    PHRASE ->  PART PHRASE | NOT FIELD VALUE | FIELD RELATION | FIELD RELATION VALUE | FIELD OPERATOR | FIELD RELATION DET OPERATOR | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | FIELDS VALUE | FIELDS TIME | RELATION FIELDS VALUE | FIELDS NOT VALUE | FIELDS NOT TIME | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | RELATION VALUE | RELATION NOT VALUE | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP PHRASE OPERATOR | SPATIALOP PHRASE
+    FPHRASE -> RELATION | PART RELATION | FIELDS RELATION | FIELDS RELATION VALUE | RELATION FIELD VALUE | RELATION VALUE | PART RELATION VALUE | SPATIALOP1 PHRASE PHRASE | SPATIALOP1 PHRASE PHRASE UNIT | SPATIALOP1 PHRASE | SPATIALOP1 PHRASE UNIT
+    PHRASE ->  PART PHRASE | NOT FIELD VALUE | FIELD RELATION | FIELD RELATION VALUE | FIELD OPERATOR | FIELD RELATION DET OPERATOR | FIELDS RELATION NOT VALUE | FIELDS RELATION FIELDS VALUE | FIELDS RELATION NOT FIELDS VALUE | FIELDS VALUE | FIELDS TIME | RELATION FIELDS VALUE | FIELDS NOT VALUE | FIELDS NOT TIME | RELATION FIELDS NUMBER | RELATION NOT FIELDS NUMBER | RELATION FIELDS NOT VALUE | RELATION VALUE | RELATION NOT VALUE | SPATIALOP GEOCONDS | SPATIALOP OPERATOR | SPATIALOP PHRASE OPERATOR | SPATIALOP OPERATOR PHRASE | SPATIALOP PHRASE | SPATIALOP COOR
     OPERATOR -> OP NUMBER | OP NUMBER UNIT | NUMBER | NUMBER UNIT
     OP -> LESS | MORE | EQUAL
     UNITCOND -> UNITDESC UNIT
@@ -384,9 +394,10 @@ def parse(sentence, metadata):
     POINT -> LU | RU | LB | RB | PUSAT | 'titik'
     SIZE -> SIDE | LENGTH | WIDTH
     CONJ -> AND | OR
-    SPATIALOP -> SPATIALOP1 | SPATIALOP2
-    SPATIALOP1 -> PANJANG1 | LUAS1 | KELILING | IN | OUTSIDE | JARAK1 | OVERLAP | ABSIS | ORDINAT | WITHIN | KOORDINAT
-    SPATIALOP2 -> LUAS2 | JARAK2 | PANJANG2 | MEETS | OVERLAPS
+    SPATIALOP -> SPATIALOP1 | SPATIALOP2 | SPATIALOP3
+    SPATIALOP1 -> PANJANG1 | LUAS1 | KELILING | JARAK1 | OVERLAP | ABSIS1 | ORDINAT1 | WITHIN | KOORDINAT1
+    SPATIALOP2 -> ABSIS2 | ORDINAT2 | KOORDINAT2 | LUAS2 | JARAK2 | PANJANG2 | MEETS
+    SPATIALOP3 -> OVERLAPS
     AGGREGATE -> COUNT | MAX | MIN | SUM
     """
 

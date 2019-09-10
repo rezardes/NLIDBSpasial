@@ -1,0 +1,2 @@
+RELATION
+places_of_interest: restoran
